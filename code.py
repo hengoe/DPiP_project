@@ -16,7 +16,7 @@ class DataRetriever():
         self._neg_data = pd.DataFrame()
         self.raw_data = pd.DataFrame() # both positive & negative tweets
 
-    def _get_data(self, keyword, positive_sentiment, n):
+    def _retrieve_tweets(self, keyword, positive_sentiment, n):
         '''
 
         Retrieves data from Twitter according to the keyword.
@@ -59,8 +59,8 @@ class DataRetriever():
         :param N: int specifying the total number of tweets. There will be N/2 positive tweets and N/2 negative tweets
         :return:
         '''
-        self._get_data(keyword=pos_key, positive_sentiment=1, n=N / 2)
-        self._get_data(keyword=neg_key, positive_sentiment=0, n=N / 2)
+        self._retrieve_tweets(keyword=pos_key, positive_sentiment=1, n=N / 2)
+        self._retrieve_tweets(keyword=neg_key, positive_sentiment=0, n=N / 2)
         self._join_data()
 
         return self.raw_data
