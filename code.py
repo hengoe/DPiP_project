@@ -6,6 +6,17 @@ from nltk.tokenize import TweetTokenizer
 import nltk
 from sklearn.model_selection import train_test_split
 
+import tensorflow as tf
+import matplotlib.pyplot as plt
+import re
+import collections
+import seaborn as sns
+
+from keras import models
+from keras.layers import Embedding, Dense, LSTM, Dropout
+from keras.preprocessing.text import Tokenizer
+from keras.preprocessing.sequence import pad_sequences
+
 nltk.download("stopwords")
 
 
@@ -86,15 +97,24 @@ class Analyzer:
         self.train_test_df = pd.DataFrame()
         self.final_eval_df = pd.DataFrame()
 
+        self._word_index = {}
+        self._vocab_size = 0
+        self._max_length = 0
+        self._x_train = []
+        self._x_test = []
+        self._y_train = []
+        self._y_test = []
+
     def preprocess_tweets(self):
         '''
         Preprocesses the data, assign the preprocessed DataFrame to self.processed_df and split the data into
         train-test data and final evaluation data (out-of-sample).
         '''
         # insert prepocessing steps here
-        prep = self.raw_df.copy(deep = True)
-        prep["clean_text"] = prep["text"].progress_apply(lambda x: self._clean_tweet(x)) # TODO: adjust colname if necessary
-        prep.drop("text", axis = 1)
+        prep = self.raw_df.copy(deep=True)
+        prep["clean_text"] = prep["text"].progress_apply(
+            lambda x: self._clean_tweet(x))  # TODO: adjust colname if necessary
+        prep.drop("text", axis=1)
 
         # TODO: empty tweets after preprocessing?
 
@@ -103,8 +123,8 @@ class Analyzer:
 
         # split processed data into train/test and final evaluation dataset
         self.train_test_df, self.final_eval_df = train_test_split(prep, test_size=0.1, random_state=7)
-        print("Shape of ... Training Data: ", self.train_test_df.shape, " ... Final Evaluation Data: ", self.final_eval_df.shape)
-
+        print("Shape of ... Training Data: ", self.train_test_df.shape, " ... Final Evaluation Data: ",
+              self.final_eval_df.shape)
 
     _ACRONYMS = {
         "SRY": "sorry",
@@ -298,7 +318,7 @@ class Analyzer:
 
         # remove the punctuation
         clean_tweet = re.sub(r"(\\|\.|,|:|;|\?|!|\)|\(|\-|\[|\]|\{|\}|\*|\||\<|\>|%|&|/|$|\+|@|\$|£|=|\^|~)", " ",
-                            clean_tweet)
+                             clean_tweet)
 
         # remove the hashtag
         clean_tweet = re.sub(r"#", "", clean_tweet)
@@ -335,16 +355,63 @@ class Analyzer:
         newTweet = " ".join(out).lower()
         return newTweet
 
-    def analyze(self):
+    def train_model(self):
         '''
-        Builds and trains model.
+        Builds and trains model based on 70% training and 30% testing data.
         :return:
         '''
 
-        # use train_test_df here
-        pass
+        train_data, test_data = train_test_split(self.train_test_df, test_size=0.3)
+        self._prepare_model_input(train_data=train_data, test_data=test_data, chatty=True)
+        self._create_model()
+        # TODO evaluate
 
-    def evaluate(self):
+    def _prepare_model_input(self, train_data, test_data, chatty=False):
+        # Tokenization
+        tokenizer = Tokenizer(oov_token='UNK')
+        tokenizer.fit_on_texts(train_data["clean_text"])  # Updates internal vocabulary based on a list of texts.
+        self._word_index = tokenizer.word_index  # maps words in our vocabulary to their numeric representation
+
+        # Encode training data sentences into sequences: "My name is Matthew," to something like "6 8 2 19,"
+        train_seq = tokenizer.texts_to_sequences(train_data["clean_text"])
+        test_seq = tokenizer.texts_to_sequences(test_data["clean_text"])
+        self._vocab_size = len(tokenizer.word_index) + 1
+        if chatty: print("There were " + str(self._vocab_size) + " unique words found.")
+
+        # Padding sequences to same length
+        self._max_length = max([len(x) for x in train_seq])
+        if chatty: print('Max length of tweet (number of words): ' + str(self._max_length))
+        self._x_train = pad_sequences(train_seq, maxlen=self._max_length)
+        self._x_test = pad_sequences(test_seq, maxlen=self._max_length)
+
+        # target variables
+        self._y_train = np.array(train_data["label"].to_list())
+        self._y_test = np.array(test_data["label"].to_list())
+
+    def _create_model(self, glove_dim=50, lstm_size=64, dropout_rate=0.5, epochs=5, batch_size=128):
+
+        # TODO: Embedding?
+
+        m = models.Sequential()
+        m.add(Embedding(self._vocab_size, glove_dim, input_length=self._max_length))
+        m.add(LSTM(lstm_size, return_sequences=True))
+        m.add(Dropout(rate=dropout_rate))
+        m.add(LSTM(lstm_size))
+        m.add(Dropout(rate=dropout_rate))
+        m.add(Dense(1, activation='sigmoid'))
+
+        # adjust embedding layer
+        # m.layers[0].set_weights([emb_matrix])
+        # m.layers[0].trainable = False
+
+        m.compile(optimizer='Adam', loss=tf.keras.losses.BinaryCrossentropy(),
+                  metrics=tf.keras.metrics.BinaryAccuracy())
+
+        self._model = m
+        self._model_history = self._model.fit(self._x_train, self._y_train, epochs=epochs, batch_size=batch_size,
+                                              verbose=1, validation_data=(self._x_test, self._y_test))
+
+    def evaluate_out_of_sample(self):
         '''
         Evaluates the model performance on
         :return:
