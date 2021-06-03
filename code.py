@@ -116,7 +116,7 @@ class Analyzer:
             lambda x: self._clean_tweet(x))  # TODO: adjust colname if necessary
         prep.drop("text", axis=1)
 
-        # TODO: empty tweets after preprocessing?
+        # TODO: removing empty tweets after preprocessing?
 
         # assign to instance variable
         self.processed_df = prep
@@ -390,7 +390,26 @@ class Analyzer:
 
     def _create_model(self, glove_dim=50, lstm_size=64, dropout_rate=0.5, epochs=5, batch_size=128):
 
-        # TODO: Embedding?
+        # get the pretrained word embedding
+        emb_dict = {}
+        glove = open("glove.twitter.27B.50d.txt")
+        for line in glove:
+            values = line.split()
+            word = values[0]
+            vector = np.asarray(values[1:], dtype='float32')
+            emb_dict[word] = vector
+        glove.close()
+
+        # build embedding matrix to set weights for embedding layer
+        emb_matrix = np.zeros((self._vocab_size, glove_dim))
+        for w, i in self._word_index.items():
+            # if chatty: print(w)
+            if i < self._vocab_size:
+                vect = emb_dict.get(w)
+                if vect is not None:
+                    emb_matrix[i] = vect
+            else:
+                break
 
         m = models.Sequential()
         m.add(Embedding(self._vocab_size, glove_dim, input_length=self._max_length))
@@ -401,8 +420,8 @@ class Analyzer:
         m.add(Dense(1, activation='sigmoid'))
 
         # adjust embedding layer
-        # m.layers[0].set_weights([emb_matrix])
-        # m.layers[0].trainable = False
+        m.layers[0].set_weights([emb_matrix])
+        m.layers[0].trainable = False
 
         m.compile(optimizer='Adam', loss=tf.keras.losses.BinaryCrossentropy(),
                   metrics=tf.keras.metrics.BinaryAccuracy())
