@@ -17,7 +17,26 @@ from keras.layers import Embedding, Dense, LSTM, Dropout
 from keras.preprocessing.text import Tokenizer
 from keras.preprocessing.sequence import pad_sequences
 
+from tweepy.streaming import StreamListener
+from tweepy import OAuthHandler, Stream
+
 nltk.download("stopwords")
+
+
+access_token = '1316724576412409858-yB2VaHqMk3fqbqj6C3wZJiKqCLNq9M'
+access_token_secret = 'ue4nxVfxYgDcpjifiPCbSl4zhl5VOss0zgNaxGx3B7jil'
+consumer_key = 'YBtHiebDFL58a96vO9QV7HjGP'
+consumer_secret = 'N9E5ZrpYi04jG51DaOq5BxCEG8LKAgft7laFWEl7djCCFs6Uiu'
+
+
+class StdOutListener(StreamListener):
+
+    def on_data(self, data):
+        print(data)
+        return True
+
+    def on_error(self, status):
+        print(status)
 
 
 class DataRetriever:
@@ -35,6 +54,8 @@ class DataRetriever:
         self.neg_key = ""
         self._neg_data = pd.DataFrame()
         self.raw_data = pd.DataFrame()  # both positive & negative tweets
+        
+
 
     def _retrieve_tweets(self, keyword, positive_sentiment, n):
         '''
@@ -49,6 +70,9 @@ class DataRetriever:
 
         # get tweets
 
+ 
+        
+        
         # make sure it is English
 
         # no duplicates
