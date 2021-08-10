@@ -8,6 +8,7 @@ from sklearn.model_selection import train_test_split
 
 import tensorflow as tf
 import matplotlib.pyplot as plt
+from matplotlib.ticker import FormatStrFormatter
 import re
 import collections
 import seaborn as sns
@@ -60,7 +61,7 @@ class DataRetriever:
     def _retrieve_tweets(self, keyword, positive_sentiment, n):
         '''
 
-        Retrieves data from Twitter according to the keyword.
+        Retrieves data from Twitter according to the keyword argument.
 
         :param keyword: string specifying the word or emoticon to retrieve tweets with.
         :param positive_sentiment: boolean. 0 if negative, 1 if positive
@@ -81,7 +82,7 @@ class DataRetriever:
 
         l = list()  # should contain only the tweets -> is a list of strings such as ["Today I feel good", "Hey world"]
 
-        # assign retrieved Data to
+        # assign retrieved Data to class fields
         if positive_sentiment == 1:
             self.pos_key = keyword
             self._pos_data = pd.DataFrame({"label": np.tile(1, len(l)),
@@ -90,9 +91,6 @@ class DataRetriever:
             self.neg_key = keyword
             self._neg_data = pd.DataFrame({"label": np.tile(0, len(l)),
                                            "text": l})
-
-    def _join_data(self):
-        self.raw_data = pd.concat([self._neg_data, self._pos_data], ignore_index=True)
 
     def get_data(self, pos_key, neg_key, N):
         '''
@@ -103,9 +101,13 @@ class DataRetriever:
         :param N: int specifying the total number of tweets. There will be N/2 positive tweets and N/2 negative tweets
         :return:
         '''
+
+        # call _retrieve_tweets fpr positive and negative sentiment, retrieving half of the desired number of tweets in each case
         self._retrieve_tweets(keyword=pos_key, positive_sentiment=1, n=N / 2)
         self._retrieve_tweets(keyword=neg_key, positive_sentiment=0, n=N / 2)
-        self._join_data()
+
+        # merge retrieved data
+        self.raw_data = pd.concat([self._neg_data, self._pos_data], ignore_index=True)
 
         return self.raw_data
 
@@ -129,6 +131,8 @@ class Analyzer:
         self._y_train = []
         self._y_test = []
 
+        self._training_specs = {"glove_dim": 50, "lstm_size": 64, "dropout_rate": 0.5, "n_epochs": 5, "batch_size": 128}
+
     def preprocess_tweets(self):
         '''
         Preprocesses the data, assign the preprocessed DataFrame to self.processed_df and split the data into
@@ -150,6 +154,7 @@ class Analyzer:
         print("Shape of ... Training Data: ", self.train_test_df.shape, " ... Final Evaluation Data: ",
               self.final_eval_df.shape)
 
+    # acronyms to be replaced by their meaning in _clean_tweets
     _ACRONYMS = {
         "SRY": "sorry",
         "L8": "late",
@@ -231,6 +236,7 @@ class Analyzer:
         "GF": "Girlfriend",
         "GR8": "Great"
     }
+    # insults to be replaced by bad_word in _clean_tweets
     _INSULTS = [
         "arse",
         "ass",
@@ -279,6 +285,7 @@ class Analyzer:
         "sucker",
         "twat",
         "whore"]
+    # negations to be replaced by not in _clean_tweets
     _NEGATIONS = [
         "isn't",
         "isnt",
@@ -319,6 +326,7 @@ class Analyzer:
         :return: list of stopwords
         """
         stopWords = stopwords.words("english")
+        # modify stopwords as desired
         stopWords.extend(["i'm", "i'll", "u", "amp", "quot", "lt"])
         stopWords.remove("not")
         return stopWords
@@ -351,9 +359,12 @@ class Analyzer:
 
         clean_tweet = clean_tweet.lower()
         clean_tweet = " " + clean_tweet + " "
-        t = TweetTokenizer(reduce_len=True)  # deletes @mentions and reduces coooooool to coool
+
+        # disassemble tweet into words
+        t = TweetTokenizer(reduce_len=True)
         tokens = t.tokenize(clean_tweet)
 
+        # replace acronyms by meaning
         for token in tokens:
             if self._ACRONYMS.get(token.upper()) is not None:  # replace acronym with meaning and tokenize again
                 acr = self._ACRONYMS.get(token.upper())
@@ -363,6 +374,7 @@ class Analyzer:
         out = []
         stopWords = self._get_stopwords()
 
+        # apply remaining preprocessing steps
         for token in tokens:
             token = token.lower()
             if token in self._NEGATIONS:  # replace negations by not
@@ -379,44 +391,33 @@ class Analyzer:
         newTweet = " ".join(out).lower()
         return newTweet
 
-    def train_model(self):
-        '''
-        Builds and trains model based on 70% training and 30% testing data.
-        :return:
-        '''
-
-        train_data, test_data = train_test_split(self.train_test_df, test_size=0.3)
-        self._prepare_model_input(train_data=train_data, test_data=test_data, chatty=True)
-        self._create_model()
-        # TODO evaluate
-
-    def _prepare_model_input(self, train_data, test_data, chatty=False):
+    def _prepare_model_input(self, chatty=False):
         # Tokenization
         tokenizer = Tokenizer(oov_token='UNK')
-        tokenizer.fit_on_texts(train_data["clean_text"])  # Updates internal vocabulary based on a list of texts.
+        tokenizer.fit_on_texts(self.train_test_df["clean_text"])  # Updates internal vocabulary based on training data
         self._word_index = tokenizer.word_index  # maps words in our vocabulary to their numeric representation
 
         # Encode training data sentences into sequences: "My name is Matthew," to something like "6 8 2 19,"
-        train_seq = tokenizer.texts_to_sequences(train_data["clean_text"])
-        test_seq = tokenizer.texts_to_sequences(test_data["clean_text"])
+        train_seq = tokenizer.texts_to_sequences(self.train_test_df["clean_text"])
+        test_seq = tokenizer.texts_to_sequences(self.final_eval_df["clean_text"])
         self._vocab_size = len(tokenizer.word_index) + 1
         if chatty: print("There were " + str(self._vocab_size) + " unique words found.")
 
         # Padding sequences to same length
         self._max_length = max([len(x) for x in train_seq])
         if chatty: print('Max length of tweet (number of words): ' + str(self._max_length))
+
+        # apply padding and save training and testing data
         self._x_train = pad_sequences(train_seq, maxlen=self._max_length)
         self._x_test = pad_sequences(test_seq, maxlen=self._max_length)
+        self._y_train = np.array(self.train_test_df["label"].to_list())
+        self._y_test = np.array(self.final_eval_df["label"].to_list())
 
-        # target variables
-        self._y_train = np.array(train_data["label"].to_list())
-        self._y_test = np.array(test_data["label"].to_list())
-
-    def _create_model(self, glove_dim=50, lstm_size=64, dropout_rate=0.5, epochs=5, batch_size=128):
+    def _create_and_train_model(self, glove_path):
 
         # get the pretrained word embedding
         emb_dict = {}
-        glove = open("glove.twitter.27B.50d.txt")
+        glove = open(glove_path)
         for line in glove:
             values = line.split()
             word = values[0]
@@ -425,7 +426,7 @@ class Analyzer:
         glove.close()
 
         # build embedding matrix to set weights for embedding layer
-        emb_matrix = np.zeros((self._vocab_size, glove_dim))
+        emb_matrix = np.zeros((self._vocab_size, self._training_specs.get("glove_dim")))
         for w, i in self._word_index.items():
             # if chatty: print(w)
             if i < self._vocab_size:
@@ -435,29 +436,83 @@ class Analyzer:
             else:
                 break
 
+        # build model
         m = models.Sequential()
-        m.add(Embedding(self._vocab_size, glove_dim, input_length=self._max_length))
-        m.add(LSTM(lstm_size, return_sequences=True))
-        m.add(Dropout(rate=dropout_rate))
-        m.add(LSTM(lstm_size))
-        m.add(Dropout(rate=dropout_rate))
+        m.add(Embedding(self._vocab_size, self._training_specs.get("glove_dim"), input_length=self._max_length))
+        m.add(LSTM(self._training_specs.get("lstm_size"), return_sequences=True))
+        m.add(Dropout(rate=self._training_specs.get("dropout_rate")))
+        m.add(LSTM(self._training_specs.get("lstm_size")))
+        m.add(Dropout(rate=self._training_specs.get("dropout_rate")))
         m.add(Dense(1, activation='sigmoid'))
 
         # adjust embedding layer
         m.layers[0].set_weights([emb_matrix])
         m.layers[0].trainable = False
 
+        # compile and train
         m.compile(optimizer='Adam', loss=tf.keras.losses.BinaryCrossentropy(),
                   metrics=tf.keras.metrics.BinaryAccuracy())
-
+        self._model_trained = self._model.fit(self._x_train, self._y_train, epochs=self._training_specs.get("n_epochs"),
+                                              batch_size=self._training_specs.get("batch_size"),
+                                              verbose=1, validation_split=0.2)
         self._model = m
-        self._model_history = self._model.fit(self._x_train, self._y_train, epochs=epochs, batch_size=batch_size,
-                                              verbose=1, validation_data=(self._x_test, self._y_test))
+        self.model_history = pd.DataFrame(self._model_trained.history)
+
+        return m
+
+    def train_model(self, training_specs=None, glove_path="glove.twitter.27B.50d.txt"):
+        '''
+        Builds and trains model based on 70% training and 30% testing data.
+        :return:
+        '''
+        if training_specs is not None:
+            self._training_specs = training_specs
+        self._prepare_model_input(chatty=True)
+        self._create_and_train_model(glove_path=glove_path)
+
+        # show training
+        self._overfitting_plot()
+
 
     def evaluate_out_of_sample(self):
         '''
-        Evaluates the model performance on
+        Evaluates the model performance on out-of-sample data
         :return:
         '''
-        # use final_eval_df here
-        pass
+        # evaluate trained model with testing data
+        result = self._model.evaluate(x=self._x_test, y=self._y_test)
+
+        #TODO: confusion matrix?
+
+        return result
+
+    def _overfitting_plot(self):
+        df = pd.DataFrame(data=np.repeat(['Training', 'Validation'], repeats=self._training_specs.get("n_epochs")), columns=['trainval'])
+        df['xaxis'] = np.array([range(1, self._training_specs.get("n_epochs") + 1)] * 2).flatten()
+        df['binary_accuracy'] = np.array([self.model_history['binary_accuracy'], self.model_history['val_binary_accuracy']]).flatten()
+        df['loss'] = np.array([self.model_history['loss'], self.model_history['val_loss']]).flatten()
+
+        fig, axes = plt.subplots(nrows=1, ncols=2, figsize=(10, 5))
+        # fig.subplots_adjust(wspace=.4, hspace=0.4)
+        # fig.suptitle('Performance on training and validation dataset', fontsize=24)
+
+        sns.scatterplot(ax=axes[0], x=df['xaxis'], y=df['binary_accuracy'], hue=df['trainval'], palette='Dark2',
+                        legend=False)
+        sns.lineplot(ax=axes[0], x=df['xaxis'], y=df['binary_accuracy'], hue=df['trainval'], palette='Dark2', alpha=0.3,
+                     estimator=None, legend=None)
+        axes[0].legend().remove()
+        axes[0].set_xlabel('Epoch', size=20)
+        axes[0].set_ylabel('Loss', size=20)
+        axes[0].tick_params(axis='both', which='major', labelsize=15)
+        axes[0].yaxis.set_major_formatter(FormatStrFormatter('%.2f'))
+
+        sns.scatterplot(ax=axes[1], x=df['xaxis'], y=df['loss'], hue=df['trainval'], palette='Dark2')
+        sns.lineplot(ax=axes[1], x=df['xaxis'], y=df['loss'], hue=df['trainval'], palette='Dark2', alpha=0.3,
+                     estimator=None, legend=None)
+        axes[1].legend(fontsize=15).set_title('')
+        axes[1].set_xlabel('Epoch', size=20)
+        axes[1].set_ylabel('Loss', size=20)
+        axes[1].tick_params(axis='both', which='major', labelsize=15)
+        axes[1].yaxis.set_major_formatter(FormatStrFormatter('%.2f'))
+
+        plt.tight_layout()
