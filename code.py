@@ -30,18 +30,6 @@ access_token_secret = 'ue4nxVfxYgDcpjifiPCbSl4zhl5VOss0zgNaxGx3B7jil'
 consumer_key = 'YBtHiebDFL58a96vO9QV7HjGP'
 consumer_secret = 'N9E5ZrpYi04jG51DaOq5BxCEG8LKAgft7laFWEl7djCCFs6Uiu'
 
-testdata = pd.DataFrame({"label": [1, 1, 1, 1, 1, 0, 0, 0, 0, 0],
-                         "text": ["I'm so happy today!",
-                                  "This is the best week of my life!",
-                                  "YAY I graduated",
-                                  "Today my sister married the love of her life!",
-                                  "going off to Canada today! looking so forward",
-                                  "It's raining and I have an appointment",
-                                  "My boss fired me today",
-                                  "I broke my leg",
-                                  "I'll never be as happy as I want to be!",
-                                  "My life sucks"]})
-
 
 class StdOutListener(StreamListener):
 
@@ -123,6 +111,18 @@ class DataRetriever:
         self.raw_data = pd.concat([self._neg_data, self._pos_data], ignore_index=True)
 
         return self.raw_data
+
+    testdata = pd.DataFrame({"label": [1, 1, 1, 1, 1, 0, 0, 0, 0, 0],
+                             "text": ["I'm so happy today!",
+                                      "This is the best week of my life!",
+                                      "YAY I graduated",
+                                      "Today my sister married the love of her life!",
+                                      "going off to Canada today! looking so forward",
+                                      "It's raining and I have an appointment",
+                                      "My boss fired me today",
+                                      "I broke my leg",
+                                      "I'll never be as happy as I want to be!",
+                                      "My life sucks"]})
 
 
 class Analyzer:
