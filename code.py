@@ -17,6 +17,7 @@ from keras import models
 from keras.layers import Embedding, Dense, LSTM, Dropout
 from keras.preprocessing.text import Tokenizer
 from keras.preprocessing.sequence import pad_sequences
+from keras.metrics import BinaryAccuracy, TrueNegatives, TruePositives, FalseNegatives, FalsePositives
 
 from tweepy.streaming import StreamListener
 from tweepy import OAuthHandler, Stream
@@ -28,6 +29,18 @@ access_token = '1316724576412409858-yB2VaHqMk3fqbqj6C3wZJiKqCLNq9M'
 access_token_secret = 'ue4nxVfxYgDcpjifiPCbSl4zhl5VOss0zgNaxGx3B7jil'
 consumer_key = 'YBtHiebDFL58a96vO9QV7HjGP'
 consumer_secret = 'N9E5ZrpYi04jG51DaOq5BxCEG8LKAgft7laFWEl7djCCFs6Uiu'
+
+testdata = pd.DataFrame({"label": [1, 1, 1, 1, 1, 0, 0, 0, 0, 0],
+                         "text": ["I'm so happy today!",
+                                  "This is the best week of my life!",
+                                  "YAY I graduated",
+                                  "Today my sister married the love of her life!",
+                                  "going off to Canada today! looking so forward",
+                                  "It's raining and I have an appointment",
+                                  "My boss fired me today",
+                                  "I broke my leg",
+                                  "I'll never be as happy as I want to be!",
+                                  "My life sucks"]})
 
 
 class StdOutListener(StreamListener):
@@ -451,7 +464,7 @@ class Analyzer:
 
         # compile and train
         m.compile(optimizer='Adam', loss=tf.keras.losses.BinaryCrossentropy(),
-                  metrics=tf.keras.metrics.BinaryAccuracy())
+                  metrics=[BinaryAccuracy(), TrueNegatives(), TruePositives(), FalseNegatives(), FalsePositives()])
         self._model_trained = self._model.fit(self._x_train, self._y_train, epochs=self._training_specs.get("n_epochs"),
                                               batch_size=self._training_specs.get("batch_size"),
                                               verbose=1, validation_split=0.2)
@@ -480,8 +493,8 @@ class Analyzer:
         :return:
         '''
         # evaluate trained model with testing data
-        result = self._model.evaluate(x=self._x_test, y=self._y_test)
 
+        self.evaluation_results = self._model.evaluate(x=self._x_test, y=self._y_test)
         #TODO: confusion matrix?
 
         return result
@@ -516,3 +529,27 @@ class Analyzer:
         axes[1].yaxis.set_major_formatter(FormatStrFormatter('%.2f'))
 
         plt.tight_layout()
+
+    def _confusion_matrix_plot(self):
+        loss, binary_accuracy, tn, tp, fn, fp = self.evaluation_results
+
+        cm = [[tp, fp],
+              [fn, tn]]
+        total_sum = tp + fp + tn + fn
+        cm_perc = [[tp / total_sum, fp / total_sum], [fn / total_sum, tn / total_sum]]
+
+        # evaluation criteria
+        # acc = (tp + tn) / total_sum
+        # precision = tp / (tp + fp)
+        # sensitivity = tp / (tp + fn)
+        # f1 = 2 * (precision * sensitivity) / (precision + sensitivity)
+
+        fig, ax = plt.subplots(nrows=1, ncols=1, figsize=(4, 4))
+        sns.heatmap(cm_perc, annot=True, vmax=1, vmin=0)
+        sns.set_style({'font.family': 'serif', 'font.serif': 'Times New Roman'})
+        # labels, title and ticks
+        ax.set_xlabel('ACTUAL LABEL')
+        ax.set_ylabel('PREDICTED LABEL')
+        ax.set_title('Confusion Matrix')
+        ax.xaxis.set_ticklabels(['Positive', 'Negative'])
+        ax.yaxis.set_ticklabels(['Positive', 'Negative'])
