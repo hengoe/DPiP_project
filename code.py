@@ -153,8 +153,7 @@ class Analyzer:
         '''
         # insert prepocessing steps here
         prep = self.raw_df.copy(deep=True)
-        prep["clean_text"] = prep["text"].progress_apply(
-            lambda x: self._clean_tweet(x))  # TODO: adjust colname if necessary
+        prep["clean_text"] = prep["text"].apply(lambda x: self._clean_tweet(x))  # TODO: adjust colname if necessary
         prep.drop("text", axis=1)
 
         # TODO: removing empty tweets after preprocessing?
