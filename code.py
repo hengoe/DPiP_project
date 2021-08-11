@@ -25,10 +25,10 @@ from tweepy import OAuthHandler, Stream
 nltk.download("stopwords")
 
 
-access_token = '1316724576412409858-yB2VaHqMk3fqbqj6C3wZJiKqCLNq9M'
-access_token_secret = 'ue4nxVfxYgDcpjifiPCbSl4zhl5VOss0zgNaxGx3B7jil'
-consumer_key = 'YBtHiebDFL58a96vO9QV7HjGP'
-consumer_secret = 'N9E5ZrpYi04jG51DaOq5BxCEG8LKAgft7laFWEl7djCCFs6Uiu'
+# access_token = '1316724576412409858-yB2VaHqMk3fqbqj6C3wZJiKqCLNq9M'
+# access_token_secret = 'ue4nxVfxYgDcpjifiPCbSl4zhl5VOss0zgNaxGx3B7jil'
+# consumer_key = 'YBtHiebDFL58a96vO9QV7HjGP'
+# consumer_secret = 'N9E5ZrpYi04jG51DaOq5BxCEG8LKAgft7laFWEl7djCCFs6Uiu'
 
 
 class StdOutListener(StreamListener):
@@ -552,3 +552,25 @@ class Analyzer:
         ax.set_title('Confusion Matrix')
         ax.xaxis.set_ticklabels(['Positive', 'Negative'])
         ax.yaxis.set_ticklabels(['Positive', 'Negative'])
+      
+    
+    
+if __name__ == '__main__':
+
+    # api access codes
+
+    access_token = '1316724576412409858-yB2VaHqMk3fqbqj6C3wZJiKqCLNq9M'
+    access_token_secret = 'ue4nxVfxYgDcpjifiPCbSl4zhl5VOss0zgNaxGx3B7jil'
+    consumer_key = 'YBtHiebDFL58a96vO9QV7HjGP'
+    consumer_secret = 'N9E5ZrpYi04jG51DaOq5BxCEG8LKAgft7laFWEl7djCCFs6Uiu'
+
+    # scraping the data
+    l = StdOutListener()
+    auth = tweepy.OAuthHandler(consumer_key, consumer_secret)
+    auth.set_access_token(access_token, access_token_secret)
+
+    twitterStream = tweepy.Stream(auth, l, wait_on_rate_limit=True,
+                                  wait_on_rate_limit_notify=True)
+    twitterStream.filter(track=["happy"], languages=["en"])
+
+    exit()    
