@@ -464,7 +464,7 @@ class Analyzer:
         # compile and train
         m.compile(optimizer='Adam', loss=tf.keras.losses.BinaryCrossentropy(),
                   metrics=[BinaryAccuracy(), TrueNegatives(), TruePositives(), FalseNegatives(), FalsePositives()])
-        self._model_trained = self._model.fit(self._x_train, self._y_train, epochs=self._training_specs.get("n_epochs"),
+        self._model_trained = m.fit(self._x_train, self._y_train, epochs=self._training_specs.get("n_epochs"),
                                               batch_size=self._training_specs.get("batch_size"),
                                               verbose=1, validation_split=0.2)
         self._model = m
