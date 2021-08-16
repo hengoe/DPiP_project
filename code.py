@@ -428,25 +428,25 @@ class Analyzer:
     def _create_and_train_model(self, glove_path):
 
         # get the pretrained word embedding
-        emb_dict = {}
-        glove = open(glove_path)
-        for line in glove:
-            values = line.split()
-            word = values[0]
-            vector = np.asarray(values[1:], dtype='float32')
-            emb_dict[word] = vector
-        glove.close()
-
-        # build embedding matrix to set weights for embedding layer
-        emb_matrix = np.zeros((self._vocab_size, self._training_specs.get("glove_dim")))
-        for w, i in self._word_index.items():
-            # if chatty: print(w)
-            if i < self._vocab_size:
-                vect = emb_dict.get(w)
-                if vect is not None:
-                    emb_matrix[i] = vect
-            else:
-                break
+        # emb_dict = {}
+        # glove = open(glove_path)
+        # for line in glove:
+        #     values = line.split()
+        #     word = values[0]
+        #     vector = np.asarray(values[1:], dtype='float32')
+        #     emb_dict[word] = vector
+        # glove.close()
+        #
+        # # build embedding matrix to set weights for embedding layer
+        # emb_matrix = np.zeros((self._vocab_size, self._training_specs.get("glove_dim")))
+        # for w, i in self._word_index.items():
+        #     # if chatty: print(w)
+        #     if i < self._vocab_size:
+        #         vect = emb_dict.get(w)
+        #         if vect is not None:
+        #             emb_matrix[i] = vect
+        #     else:
+        #         break
 
         # build model
         m = models.Sequential()
@@ -458,8 +458,8 @@ class Analyzer:
         m.add(Dense(1, activation='sigmoid'))
 
         # adjust embedding layer
-        m.layers[0].set_weights([emb_matrix])
-        m.layers[0].trainable = False
+        #m.layers[0].set_weights([emb_matrix])
+        m.layers[0].trainable = True
 
         # compile and train
         m.compile(optimizer='Adam', loss=tf.keras.losses.BinaryCrossentropy(),
@@ -496,7 +496,7 @@ class Analyzer:
         self.evaluation_results = self._model.evaluate(x=self._x_test, y=self._y_test)
         #TODO: confusion matrix?
 
-        return result
+        return self.evaluation_results
 
     def _overfitting_plot(self):
         df = pd.DataFrame(data=np.repeat(['Training', 'Validation'], repeats=self._training_specs.get("n_epochs")), columns=['trainval'])
