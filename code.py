@@ -380,7 +380,8 @@ class Models:
         y_pred = (y_prob > 0.5).astype("int32")
 
         self.evaluation_results = self._model.evaluate(x=self._x_test, y=self._y_test)
-        self.predicted_df = pd.DataFrame({"text": self.raw_df["text"],
+        # match original tweet with predicted label
+        self.predicted_df = pd.DataFrame({"text": self.predicted_df["text"],
                                           "predicted label": y_pred})
 
         if confusion_matrix:
@@ -445,6 +446,9 @@ class ModelTrainer(Models):
         train_test_df, final_eval_df = train_test_split(self.preprocessed_df, test_size=0.1, random_state=7)
         print("Shape of ... Training Data: ", train_test_df.shape, " ... Final Evaluation Data: ",
               final_eval_df.shape)
+        #save final eval df for predictions
+        self.predicted_df = final_eval_df
+
         # Tokenization
         tokenizer = Tokenizer(oov_token='UNK')
         tokenizer.fit_on_texts(train_test_df["clean_text"])  # Updates internal vocabulary based on training data
