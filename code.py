@@ -337,17 +337,6 @@ class Analyzer:
         "shouldn't",
         "shouldnt"]
 
-    def _get_stopwords(self):
-        """
-        Get stopwords from nltk package and modify them appropriately.
-        :return: list of stopwords
-        """
-        stopWords = stopwords.words("english")
-        # modify stopwords as desired
-        stopWords.extend(["i'm", "i'll", "u", "amp", "quot", "lt"])
-        stopWords.remove("not")
-        return stopWords
-
     def _clean_tweet(self, tweet):
         """
         remove urls, hashtag, quotes, RT, punctuation. Then tokenize and replace acronyms by their meaning,
@@ -364,11 +353,9 @@ class Analyzer:
         clean_tweet = re.sub(r"pic.twitter.com\S+", " ", clean_tweet)
         # remove mentions
         clean_tweet = re.sub(r"@\S+", " ", clean_tweet)
-
         # remove the punctuation
         clean_tweet = re.sub(r"(\\|\.|,|:|;|\?|!|\)|\(|\-|\[|\]|\{|\}|\*|\||\<|\>|%|&|/|$|\+|@|\$|£|=|\^|~)", " ",
                              clean_tweet)
-
         # remove the hashtag
         clean_tweet = re.sub(r"#", "", clean_tweet)
         # remove the RT
@@ -388,9 +375,12 @@ class Analyzer:
                 textNew = re.sub(token, " " + acr + " ", clean_tweet)
                 tokens = t.tokenize(textNew)
 
-        out = []
-        stopWords = self._get_stopwords()
+        # get and modify stopwords
+        stopWords = stopwords.words("english")
+        stopWords.extend(["i'm", "i'll", "u", "amp", "quot", "lt"])
+        stopWords.remove("not")
 
+        out = []
         # apply remaining preprocessing steps
         for token in tokens:
             token = token.lower()
