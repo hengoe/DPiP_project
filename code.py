@@ -405,7 +405,7 @@ class Models:
         ax.yaxis.set_ticklabels(['Positive', 'Negative'])
 
 
-class ModelTArainer(Models):
+class ModelTrainer(Models):
     def __init__(self, raw_data, model_folder_path):
         super().__init__(raw_data=raw_data, model_folder_path=model_folder_path)
         self._x_train = None
