@@ -434,7 +434,7 @@ class ModelTrainer(Models):
 
         # save model
         if save_model:
-            self._model.save(self.model_folder_path + "/model")
+            self._model.save(self._model_folder_path + "/model")
 
     def predict_out_of_sample(self, return_predictions=False, confusion_matrix=True):
         super()._predict_new_data(return_predictions=return_predictions, confusion_matrix=confusion_matrix)
