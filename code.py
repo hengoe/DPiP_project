@@ -424,7 +424,7 @@ class ModelTrainer(Models):
         if training_specs is not None:
             self._training_specs = training_specs
 
-        self._preprocess_tweets()
+        super()._preprocess_tweets()
         self._prepare_model_input(chatty=True)
         self._create_and_train_model()  # glove_path=glove_path)
 
