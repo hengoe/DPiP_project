@@ -27,7 +27,6 @@ from tweepy import OAuthHandler, Stream
 nltk.download("stopwords")
 
 
-
 # access_token = '1316724576412409858-yB2VaHqMk3fqbqj6C3wZJiKqCLNq9M'
 # access_token_secret = 'ue4nxVfxYgDcpjifiPCbSl4zhl5VOss0zgNaxGx3B7jil'
 # consumer_key = 'YBtHiebDFL58a96vO9QV7HjGP'
@@ -59,8 +58,6 @@ class DataRetriever:
         self.neg_key = ""
         self._neg_data = pd.DataFrame()
         self.raw_data = pd.DataFrame()  # both positive & negative tweets
-        
-
 
     def _retrieve_tweets(self, keyword, positive_sentiment, n):
         '''
@@ -75,9 +72,6 @@ class DataRetriever:
 
         # get tweets
 
- 
-        
-        
         # make sure it is English
 
         # no duplicates
@@ -131,7 +125,6 @@ class DataRetriever:
                                       "I broke my leg",
                                       "I'll never be as happy as I want to be!",
                                       "My life sucks"]})
-
 
 
 class Models:
@@ -412,7 +405,7 @@ class Models:
         ax.yaxis.set_ticklabels(['Positive', 'Negative'])
 
 
-class ModelTrainer(Models):
+class ModelTArainer(Models):
     def __init__(self, raw_data, model_folder_path):
         super().__init__(raw_data=raw_data, model_folder_path=model_folder_path)
         self._x_train = None
@@ -581,14 +574,13 @@ class ModelApplier(Models):
         super()._x_test = pad_sequences(data_seq, maxlen=self._padding_length)
         super()._y_test = np.array(super().preprocessed_df["label"].to_list())
 
-    def predict_new_data(self, return_predictions=True, confusion_matrix=True):#
+    def predict_new_data(self, return_predictions=True, confusion_matrix=True):  #
         super()._preprocess_tweets()
         self._prepare_model_input()
         super()._predict_new_data(return_predictions=return_predictions, confusion_matrix=confusion_matrix)
 
 
 if __name__ == '__main__':
-
     # api access codes
 
     access_token = '1316724576412409858-yB2VaHqMk3fqbqj6C3wZJiKqCLNq9M'
@@ -598,11 +590,11 @@ if __name__ == '__main__':
 
     # scraping the data
     l = StdOutListener()
-    auth = tweepy.OAuthHandler(consumer_key, consumer_secret)
+    auth = OAuthHandler(consumer_key, consumer_secret)
     auth.set_access_token(access_token, access_token_secret)
 
-    twitterStream = tweepy.Stream(auth, l, wait_on_rate_limit=True,
+    twitterStream = Stream(auth, l, wait_on_rate_limit=True,
                                   wait_on_rate_limit_notify=True)
     twitterStream.filter(track=["happy"], languages=["en"])
 
-    exit()    
+    exit()
