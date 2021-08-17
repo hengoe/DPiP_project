@@ -415,14 +415,12 @@ class ModelTrainer(Models):
         self._max_length = None
         self._training_specs = {"glove_dim": 50, "lstm_size": 64, "dropout_rate": 0.5, "n_epochs": 5, "batch_size": 128}
 
-    def train_model_on_data(self, overfitting_plot=True, save_model=True, model_path=None,
+    def train_model_on_data(self, overfitting_plot=True, save_model=True,
                             training_specs=None):  # , glove_path="glove.twitter.27B.50d.txt"):
         '''
         Builds and trains model based on 70% training and 30% testing data.
         :return:
         '''
-        if save_model and not model_path:
-            raise TypeError("Please provide model_path if save_model=True!")
         if training_specs is not None:
             self._training_specs = training_specs
 
@@ -436,7 +434,7 @@ class ModelTrainer(Models):
 
         # save model
         if save_model:
-            super()._model.save(model_path)
+            super()._model.save(super().model_folder_path + "/model")
 
     def predict_out_of_sample(self, return_predictions=False, confusion_matrix=True):
         super()._predict_new_data(return_predictions=return_predictions, confusion_matrix=confusion_matrix)
@@ -555,8 +553,7 @@ class ModelTrainer(Models):
 class ModelApplier(Models):
     def __init__(self, raw_data, model_folder_path):
         super().__init__(raw_data=raw_data, model_folder_path=model_folder_path)
-        super().raw_df = raw_data  # TODO assert correct format
-        super()._model = models.load_model(model_folder_path + "/m")  # TODO save model accordingly!
+        super()._model = models.load_model(model_folder_path + "/model")
         self._padding_length = super()._model.input_shape[1]  # length if inputs required for trained model
 
     def _prepare_model_input(self):
