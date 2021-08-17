@@ -440,6 +440,8 @@ class ModelTrainer(Models):
         super()._predict_new_data(return_predictions=return_predictions, confusion_matrix=confusion_matrix)
 
     def _prepare_model_input(self, chatty=False):
+        if super().preprocessed_df is None:
+            raise AssertionError("preprocessed_df is None")
         train_test_df, final_eval_df = train_test_split(super().preprocessed_df, test_size=0.1, random_state=7)
         print("Shape of ... Training Data: ", train_test_df.shape, " ... Final Evaluation Data: ",
               final_eval_df.shape)
