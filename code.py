@@ -575,7 +575,6 @@ class ModelApplier(Models):
 
         # Padding sequences to the length matching the model input
         self._x_test = pad_sequences(data_seq, maxlen=self._padding_length)
-        self._y_test = np.array(self.preprocessed_df["label"].to_list())
 
     def predict_new_data(self, return_predictions=True, confusion_matrix=True):  #
         super()._preprocess_tweets()
