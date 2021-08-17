@@ -434,7 +434,7 @@ class ModelTrainer(Models):
 
         # save model
         if save_model:
-            super()._model.save(super().model_folder_path + "/model")
+            self._model.save(self.model_folder_path + "/model")
 
     def predict_out_of_sample(self, return_predictions=False, confusion_matrix=True):
         super()._predict_new_data(return_predictions=return_predictions, confusion_matrix=confusion_matrix)
@@ -442,7 +442,7 @@ class ModelTrainer(Models):
     def _prepare_model_input(self, chatty=False):
         if self.preprocessed_df is None:
             raise AssertionError("preprocessed_df is None")
-        train_test_df, final_eval_df = train_test_split(super().preprocessed_df, test_size=0.1, random_state=7)
+        train_test_df, final_eval_df = train_test_split(self.preprocessed_df, test_size=0.1, random_state=7)
         print("Shape of ... Training Data: ", train_test_df.shape, " ... Final Evaluation Data: ",
               final_eval_df.shape)
         # Tokenization
@@ -462,13 +462,13 @@ class ModelTrainer(Models):
 
         # apply padding and save training and testing data
         self._x_train = pad_sequences(train_seq, maxlen=self._max_length)
-        super()._x_test = pad_sequences(test_seq, maxlen=self._max_length)
+        self._x_test = pad_sequences(test_seq, maxlen=self._max_length)
         self._y_train = np.array(train_test_df["label"].to_list())
-        super()._y_test = np.array(final_eval_df["label"].to_list())
+        self._y_test = np.array(final_eval_df["label"].to_list())
 
         # save tokenizer to use later:
         tokenizer_json = tokenizer.to_json()
-        with io.open(super()._model_folder_path + '/tokenizer.json', 'w', encoding='utf-8') as f:
+        with io.open(self._model_folder_path + '/tokenizer.json', 'w', encoding='utf-8') as f:
             f.write(json.dumps(tokenizer_json, ensure_ascii=False))
 
     def _create_and_train_model(self):  # , glove_path):
@@ -513,8 +513,8 @@ class ModelTrainer(Models):
         hist = m.fit(self._x_train, self._y_train, epochs=self._training_specs.get("n_epochs"),
                      batch_size=self._training_specs.get("batch_size"),
                      verbose=1, validation_split=0.2)
-        super()._model = m
-        super().model_history = pd.DataFrame(hist.history)
+        self._model = m
+        self.model_history = pd.DataFrame(hist.history)
 
         return m
 
@@ -523,8 +523,8 @@ class ModelTrainer(Models):
                           columns=['trainval'])
         df['xaxis'] = np.array([range(1, self._training_specs.get("n_epochs") + 1)] * 2).flatten()
         df['binary_accuracy'] = np.array(
-            [super().model_history['binary_accuracy'], super().model_history['val_binary_accuracy']]).flatten()
-        df['loss'] = np.array([super().model_history['loss'], super().model_history['val_loss']]).flatten()
+            [self.model_history['binary_accuracy'], self.model_history['val_binary_accuracy']]).flatten()
+        df['loss'] = np.array([self.model_history['loss'], self.model_history['val_loss']]).flatten()
 
         fig, axes = plt.subplots(nrows=1, ncols=2, figsize=(10, 5))
         # fig.subplots_adjust(wspace=.4, hspace=0.4)
@@ -555,23 +555,23 @@ class ModelTrainer(Models):
 class ModelApplier(Models):
     def __init__(self, raw_data, model_folder_path):
         super().__init__(raw_data=raw_data, model_folder_path=model_folder_path)
-        super()._model = models.load_model(model_folder_path + "/model")
-        self._padding_length = super()._model.input_shape[1]  # length if inputs required for trained model
+        self._model = models.load_model(model_folder_path + "/model")
+        self._padding_length = self._model.input_shape[1]  # length if inputs required for trained model
 
     def _prepare_model_input(self):
         # load tokenizer adjusted to training data
-        tokenizer_path = super()._model_folder_path + '/tokenizer.json'
+        tokenizer_path = self._model_folder_path + '/tokenizer.json'
         with open(tokenizer_path) as f:
             json_data = json.load(f)
             tokenizer = tokenizer_from_json(json_data)
 
         # encode tweets with tokenizer trained on training data
-        super().preprocessed_df["text"] = super().preprocessed_df["text"].astype(str)
-        data_seq = tokenizer.texts_to_sequences(super().preprocessed_df["text"])
+        self.preprocessed_df["text"] = self.preprocessed_df["text"].astype(str)
+        data_seq = tokenizer.texts_to_sequences(self.preprocessed_df["text"])
 
         # Padding sequences to the length matching the model input
-        super()._x_test = pad_sequences(data_seq, maxlen=self._padding_length)
-        super()._y_test = np.array(super().preprocessed_df["label"].to_list())
+        self._x_test = pad_sequences(data_seq, maxlen=self._padding_length)
+        self._y_test = np.array(self.preprocessed_df["label"].to_list())
 
     def predict_new_data(self, return_predictions=True, confusion_matrix=True):  #
         super()._preprocess_tweets()
