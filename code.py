@@ -308,7 +308,7 @@ class Models:
     def _preprocess_tweets(self):
         prep = self.raw_df.copy(deep=True)
         prep["clean_text"] = prep["text"].apply(lambda x: self._clean_tweet(x))  # TODO: adjust colname if necessary
-        prep.drop("text", axis=1)
+        #prep.drop("text", axis=1)
         # TODO: removing empty tweets after preprocessing?
 
         # assign to instance variable
@@ -570,8 +570,8 @@ class ModelApplier(Models):
             tokenizer = tokenizer_from_json(json_data)
 
         # encode tweets with tokenizer trained on training data
-        self.preprocessed_df["text"] = self.preprocessed_df["text"].astype(str)
-        data_seq = tokenizer.texts_to_sequences(self.preprocessed_df["text"])
+        self.preprocessed_df["clean_text"] = self.preprocessed_df["clean_text"].astype(str)
+        data_seq = tokenizer.texts_to_sequences(self.preprocessed_df["clean_text"])
 
         # Padding sequences to the length matching the model input
         self._x_test = pad_sequences(data_seq, maxlen=self._padding_length)
