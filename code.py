@@ -307,15 +307,12 @@ class Models:
 
     def _preprocess_tweets(self):
         prep = self.raw_df.copy(deep=True)
-        print(prep)
         prep["clean_text"] = prep["text"].apply(lambda x: self._clean_tweet(x))  # TODO: adjust colname if necessary
-        print(prep)
         #prep.drop("text", axis=1)
         # TODO: removing empty tweets after preprocessing?
 
         # assign to instance variable
         self.preprocessed_df = prep
-        print(self.preprocessed_df)
 
     def _clean_tweet(self, tweet):
         """
@@ -444,8 +441,6 @@ class ModelTrainer(Models):
         super()._predict_new_data(return_predictions=return_predictions, confusion_matrix=confusion_matrix)
 
     def _prepare_model_input(self, chatty=False):
-        if self.preprocessed_df is None:
-            raise AssertionError("preprocessed_df is None")
         train_test_df, final_eval_df = train_test_split(self.preprocessed_df, test_size=0.1, random_state=7)
         print("Shape of ... Training Data: ", train_test_df.shape, " ... Final Evaluation Data: ",
               final_eval_df.shape)
@@ -574,6 +569,7 @@ class ModelApplier(Models):
 
         # encode tweets with tokenizer trained on training data
         self.preprocessed_df["clean_text"] = self.preprocessed_df["clean_text"].astype(str)
+        self.predicted_df = self.preprocessed_df # save for model evaluation
         data_seq = tokenizer.texts_to_sequences(self.preprocessed_df["clean_text"])
 
         # Padding sequences to the length matching the model input
