@@ -382,7 +382,7 @@ class Models:
         self.evaluation_results = self._model.evaluate(x=self._x_test, y=self._y_test)
         # match original tweet with predicted label
         self.predicted_df = pd.DataFrame({"text": self.predicted_df["text"],
-                                          "predicted label": y_pred})
+                                          "predicted label": y_pred.flatten()})
 
         if confusion_matrix:
             self._confusion_matrix_plot()
