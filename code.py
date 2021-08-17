@@ -307,12 +307,15 @@ class Models:
 
     def _preprocess_tweets(self):
         prep = self.raw_df.copy(deep=True)
+        print(prep)
         prep["clean_text"] = prep["text"].apply(lambda x: self._clean_tweet(x))  # TODO: adjust colname if necessary
+        print(prep)
         #prep.drop("text", axis=1)
         # TODO: removing empty tweets after preprocessing?
 
         # assign to instance variable
         self.preprocessed_df = prep
+        print(self.preprocessed_df)
 
     def _clean_tweet(self, tweet):
         """
