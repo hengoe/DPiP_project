@@ -93,7 +93,7 @@ class DataRetriever:
             self._neg_data = pd.DataFrame({"label": np.tile(0, len(l)),
                                            "text": l})
 
-    def get_data(self, pos_key, neg_key, N):
+    def get_data(self, pos_key, neg_key, N, save_to_csv=True, file_path=None):
         '''
         Called to retrieve the data.
 
@@ -102,6 +102,8 @@ class DataRetriever:
         :param N: int specifying the total number of tweets. There will be N/2 positive tweets and N/2 negative tweets
         :return:
         '''
+        if save_to_csv and not file_path:
+            raise TypeError("Please provide file_path if save_to_csv=True!")
 
         # call _retrieve_tweets fpr positive and negative sentiment, retrieving half of the desired number of tweets in each case
         self._retrieve_tweets(keyword=pos_key, positive_sentiment=1, n=N / 2)
@@ -109,6 +111,9 @@ class DataRetriever:
 
         # merge retrieved data
         self.raw_data = pd.concat([self._neg_data, self._pos_data], ignore_index=True)
+
+        if save_to_csv:
+            self.raw_data.to_csv(file_path)
 
         return self.raw_data
 
@@ -146,7 +151,7 @@ class Analyzer:
 
         self._training_specs = {"glove_dim": 50, "lstm_size": 64, "dropout_rate": 0.5, "n_epochs": 5, "batch_size": 128}
 
-    def preprocess_tweets(self):
+    def preprocess_tweets(self): # TODO make it applicable to new tweets (to be classified)
         '''
         Preprocesses the data, assign the preprocessed DataFrame to self.processed_df and split the data into
         train-test data and final evaluation data (out-of-sample).
@@ -472,11 +477,13 @@ class Analyzer:
 
         return m
 
-    def train_model(self, training_specs=None, glove_path="glove.twitter.27B.50d.txt"):
+    def train_model(self, save_model=True, model_path=None, training_specs=None, glove_path="glove.twitter.27B.50d.txt"):
         '''
         Builds and trains model based on 70% training and 30% testing data.
         :return:
         '''
+        if save_model and not model_path:
+            raise TypeError("Please provide model_path if save_model=True!")
         if training_specs is not None:
             self._training_specs = training_specs
         self._prepare_model_input(chatty=True)
@@ -484,6 +491,8 @@ class Analyzer:
 
         # show training
         self._overfitting_plot()
+        if save_model:
+            self._model.save(model_path)
 
 
     def evaluate_out_of_sample(self):
@@ -552,6 +561,7 @@ class Analyzer:
         ax.set_title('Confusion Matrix')
         ax.xaxis.set_ticklabels(['Positive', 'Negative'])
         ax.yaxis.set_ticklabels(['Positive', 'Negative'])
+
       
     
     
