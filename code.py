@@ -413,10 +413,10 @@ class Models:
         sns.set_style('white')
         sns.histplot(data=self.predicted_df,
                      x='probability for positive label',
-                     ax=ax[0], color='palegoldenrod',
+                     ax=ax, color='palegoldenrod',
                      stat='probability', bins=101)
-        ax[0].set_ylabel('Relative Frequency')
-        ax[0].set_xlabel('Predicted Probability for Positive Sentiment')
+        ax.set_ylabel('Relative Frequency')
+        ax.set_xlabel('Predicted Probability for Positive Sentiment')
 
 class ModelTrainer(Models):
     def __init__(self, raw_data, model_folder_path):
