@@ -294,9 +294,11 @@ class Models:
         "shouldn't",
         "shouldnt"]
 
-    def __init__(self, raw_data, model_folder_path):
+    def __init__(self, raw_data, model_folder_path, colname_tweets="text", colname_label="label"):
         self._model_folder_path = model_folder_path
         self.raw_df = raw_data  # todo make sure correct format
+        self._colname_tweets = colname_tweets
+        self._colname_label = colname_label
         self.preprocessed_df = None
         self.predicted_df = None
         self._y_test = None
@@ -307,8 +309,8 @@ class Models:
 
     def _preprocess_tweets(self):
         prep = self.raw_df.copy(deep=True)
-        prep["clean_text"] = prep["text"].apply(lambda x: self._clean_tweet(x))  # TODO: adjust colname if necessary
-        #prep.drop("text", axis=1)
+        prep["clean_text"] = prep[self._colname_tweets].apply(lambda x: self._clean_tweet(x))  # TODO: adjust colname if necessary
+        #prep.drop(self._colname_tweets, axis=1)
         # TODO: removing empty tweets after preprocessing?
 
         # assign to instance variable
@@ -381,7 +383,7 @@ class Models:
 
         self.evaluation_results = self._model.evaluate(x=self._x_test, y=self._y_test)
         # match original tweet with predicted label
-        self.predicted_df = pd.DataFrame({"text": self.predicted_df["text"],
+        self.predicted_df = pd.DataFrame({self._colname_tweets: self.predicted_df[self._colname_tweets],
                                           "predicted label": y_pred.flatten(),
                                           "probability for positive label": y_prob.flatten().round(decimals=5)})
 
@@ -478,8 +480,8 @@ class ModelTrainer(Models):
         # apply padding and save training and testing data
         self._x_train = pad_sequences(train_seq, maxlen=self._max_length)
         self._x_test = pad_sequences(test_seq, maxlen=self._max_length)
-        self._y_train = np.array(train_test_df["label"].to_list())
-        self._y_test = np.array(final_eval_df["label"].to_list())
+        self._y_train = np.array(train_test_df[self._colname_label].to_list())
+        self._y_test = np.array(final_eval_df[self._colname_label].to_list())
 
         # save tokenizer to use later:
         tokenizer_json = tokenizer.to_json()
