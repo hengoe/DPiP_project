@@ -294,7 +294,7 @@ class Models:
         "shouldn't",
         "shouldnt"]
 
-    def __init__(self, raw_data, model_folder_path, colname_tweets="text", colname_label="label"):
+    def __init__(self, raw_data, model_folder_path, colname_tweets, colname_label):
         self._model_folder_path = model_folder_path
         self.raw_df = raw_data  # todo make sure correct format
         self._colname_tweets = colname_tweets
@@ -421,8 +421,9 @@ class Models:
         ax.set_xlabel('Predicted Probability for Positive Sentiment')
 
 class ModelTrainer(Models):
-    def __init__(self, raw_data, model_folder_path):
-        super().__init__(raw_data=raw_data, model_folder_path=model_folder_path)
+    def __init__(self, raw_data, model_folder_path, colname_tweets="text", colname_label="label"):
+        super().__init__(raw_data=raw_data, model_folder_path=model_folder_path,
+                         colname_tweets=colname_tweets, colname_label=colname_label)
         self._x_train = None
         self._y_train = None
         self._word_index = None
@@ -570,8 +571,9 @@ class ModelTrainer(Models):
 
 
 class ModelApplier(Models):
-    def __init__(self, raw_data, model_folder_path):
-        super().__init__(raw_data=raw_data, model_folder_path=model_folder_path)
+    def __init__(self, raw_data, model_folder_path, colname_tweets="text", colname_label="label"):
+        super().__init__(raw_data=raw_data, model_folder_path=model_folder_path,
+                         colname_tweets=colname_tweets, colname_label=colname_label)
         self._model = models.load_model(model_folder_path + "/model")
         self._padding_length = self._model.input_shape[1]  # length if inputs required for trained model
 
