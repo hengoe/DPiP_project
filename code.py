@@ -375,17 +375,21 @@ class Models:
         newTweet = " ".join(out).lower()
         return newTweet
 
-    def _predict_new_data(self, return_predictions=True, confusion_matrix=True):
+    def _predict_new_data(self, return_predictions=True, confusion_matrix=True, predictions_histogram = True):
         y_prob = self._model.predict(self._x_test)
         y_pred = (y_prob > 0.5).astype("int32")
 
         self.evaluation_results = self._model.evaluate(x=self._x_test, y=self._y_test)
         # match original tweet with predicted label
         self.predicted_df = pd.DataFrame({"text": self.predicted_df["text"],
-                                          "predicted label": y_pred.flatten()})
+                                          "predicted label": y_pred.flatten(),
+                                          "probability for positive label": y_prob.flatten().round(decimals=5)})
 
         if confusion_matrix:
             self._confusion_matrix_plot()
+
+        if predictions_histogram:
+            self._predictions_histogram()
 
         if return_predictions:
             return self.predicted_df
@@ -398,13 +402,21 @@ class Models:
 
         fig, ax = plt.subplots(nrows=1, ncols=1, figsize=(4, 4))
         sns.heatmap(cm_perc, annot=True, vmax=1, vmin=0)
-        sns.set_style({'font.family': 'serif', 'font.serif': 'Times New Roman'})
-        ax.set_xlabel('ACTUAL LABEL')
-        ax.set_ylabel('PREDICTED LABEL')
+        ax.set_xlabel('Actual Label')
+        ax.set_ylabel('Predicted Label')
         ax.set_title('Confusion Matrix')
         ax.xaxis.set_ticklabels(['Positive', 'Negative'])
         ax.yaxis.set_ticklabels(['Positive', 'Negative'])
 
+    def _predictions_histogram(self):
+        fig_basic, ax = plt.subplots(nrows=1, ncols=1, figsize=(9, 7))
+        sns.set_style('white')
+        sns.histplot(data=self.predicted_df,
+                     x='probability for positive label',
+                     ax=ax[0], color='palegoldenrod',
+                     stat='probability', bins=101)
+        ax[0].set_ylabel('Relative Frequency')
+        ax[0].set_xlabel('Predicted Probability for Positive Sentiment')
 
 class ModelTrainer(Models):
     def __init__(self, raw_data, model_folder_path):
@@ -437,8 +449,9 @@ class ModelTrainer(Models):
         if save_model:
             self._model.save(self._model_folder_path + "/model")
 
-    def predict_out_of_sample(self, return_predictions=False, confusion_matrix=True):
-        super()._predict_new_data(return_predictions=return_predictions, confusion_matrix=confusion_matrix)
+    def evaluate_out_of_sample(self, return_predictions=False, confusion_matrix=True, predictions_histogram=True):
+        super()._predict_new_data(return_predictions=return_predictions, confusion_matrix=confusion_matrix,
+                                  predictions_histogram=predictions_histogram)
 
     def _prepare_model_input(self, chatty=False):
         train_test_df, final_eval_df = train_test_split(self.preprocessed_df, test_size=0.1, random_state=7)
@@ -575,10 +588,11 @@ class ModelApplier(Models):
         # Padding sequences to the length matching the model input
         self._x_test = pad_sequences(data_seq, maxlen=self._padding_length)
 
-    def predict_new_data(self, return_predictions=True, confusion_matrix=True):  #
+    def predict_new_data(self, return_predictions=True, predictions_histogram=True):
         super()._preprocess_tweets()
         self._prepare_model_input()
-        super()._predict_new_data(return_predictions=return_predictions, confusion_matrix=confusion_matrix)
+        super()._predict_new_data(return_predictions=return_predictions, confusion_matrix=False,
+                                  predictions_histogram=predictions_histogram)
 
 
 if __name__ == '__main__':
