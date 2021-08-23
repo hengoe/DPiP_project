@@ -607,7 +607,7 @@ if __name__ == '__main__':
 
     # api access code
         # Padding sequences to the length matching the model input
-        self._x_test = pad_sequences(data_seq, maxlen=self._padding_length)
+    self._x_test = pad_sequences(data_seq, maxlen=self._padding_length)
 
     def predict_new_data(self, return_predictions=True, predictions_histogram=True):
         super()._preprocess_tweets()
@@ -625,16 +625,16 @@ if __name__ == '__main__':
 
     streamList = StdOutListener()
     dataRetr = DataRetriever()
-    alazyer = Analyzer(DataRetriever=dataRetr)
+    analyzyer = Analyzer(DataRetriever=dataRetr)
 
-    # scraping the data
-    l = StdOutListener()
-    auth = OAuthHandler(consumer_key, consumer_secret)
-    auth.set_access_token(access_token, access_token_secret)
+    # # scraping the data
+    # l = StdOutListener()
+    # auth = OAuthHandler(consumer_key, consumer_secret)
+    # auth.set_access_token(access_token, access_token_secret)
+    #
+    # twitterStream = Stream(auth, l, wait_on_rate_limit=True,
+    #                               wait_on_rate_limit_notify=True)
+    # twitterStream.filter(track=["happy"], languages=["en"])
 
-    twitterStream = Stream(auth, l, wait_on_rate_limit=True,
-                                  wait_on_rate_limit_notify=True)
-    twitterStream.filter(track=["happy"], languages=["en"])
 
-
-    exit(0)
+    exit()
