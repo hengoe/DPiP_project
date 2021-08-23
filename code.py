@@ -12,10 +12,12 @@ from matplotlib.ticker import FormatStrFormatter
 import re
 import collections
 import seaborn as sns
+import io
+import json
 
 from keras import models
 from keras.layers import Embedding, Dense, LSTM, Dropout
-from keras.preprocessing.text import Tokenizer
+from keras.preprocessing.text import Tokenizer, tokenizer_from_json
 from keras.preprocessing.sequence import pad_sequences
 from keras.metrics import BinaryAccuracy, TrueNegatives, TruePositives, FalseNegatives, FalsePositives
 
@@ -52,8 +54,6 @@ class DataRetriever:
         self.neg_key = ""
         self._neg_data = pd.DataFrame()
         self.raw_data = pd.DataFrame()  # both positive & negative tweets
-        
-
 
     def _retrieve_tweets(self, keyword, positive_sentiment, n):
         '''
@@ -67,6 +67,7 @@ class DataRetriever:
         '''
 
         # get tweets
+
         l = StdOutListener()
         auth = tweepy.OAuthHandler(consumer_key, consumer_secret)
         auth.set_access_token(access_token, access_token_secret)
@@ -140,47 +141,7 @@ class DataRetriever:
                                       "My life sucks"]})
 
 
-class Analyzer:
-    '''
-    Performs preprocessing and analysis of tweets, maybe also visualization?
-    '''
-
-    def __init__(self, DataRetriever):
-        self.raw_df = DataRetriever.raw_data
-        self.processed_df = pd.DataFrame()
-        self.train_test_df = pd.DataFrame()
-        self.final_eval_df = pd.DataFrame()
-
-        self._word_index = {}
-        self._vocab_size = 0
-        self._max_length = 0
-        self._x_train = []
-        self._x_test = []
-        self._y_train = []
-        self._y_test = []
-
-        self._training_specs = {"glove_dim": 50, "lstm_size": 64, "dropout_rate": 0.5, "n_epochs": 5, "batch_size": 128}
-
-    def preprocess_tweets(self): # TODO make it applicable to new tweets (to be classified)
-        '''
-        Preprocesses the data, assign the preprocessed DataFrame to self.processed_df and split the data into
-        train-test data and final evaluation data (out-of-sample).
-        '''
-        # insert prepocessing steps here
-        prep = self.raw_df.copy(deep=True)
-        prep["clean_text"] = prep["text"].apply(lambda x: self._clean_tweet(x))  # TODO: adjust colname if necessary
-        prep.drop("text", axis=1)
-
-        # TODO: removing empty tweets after preprocessing?
-
-        # assign to instance variable
-        self.processed_df = prep
-
-        # split processed data into train/test and final evaluation dataset
-        self.train_test_df, self.final_eval_df = train_test_split(prep, test_size=0.1, random_state=7)
-        print("Shape of ... Training Data: ", self.train_test_df.shape, " ... Final Evaluation Data: ",
-              self.final_eval_df.shape)
-
+class Models:
     # acronyms to be replaced by their meaning in _clean_tweets
     _ACRONYMS = {
         "SRY": "sorry",
@@ -347,6 +308,28 @@ class Analyzer:
         "shouldn't",
         "shouldnt"]
 
+    def __init__(self, raw_data, model_folder_path, colname_tweets, colname_label):
+        self._model_folder_path = model_folder_path
+        self.raw_df = raw_data  # todo make sure correct format
+        self._colname_tweets = colname_tweets
+        self._colname_label = colname_label
+        self.preprocessed_df = None
+        self.predicted_df = None
+        self._y_test = None
+        self._x_test = None
+        self._model = None
+        self.model_history = None
+        self.evaluation_results = None
+
+    def _preprocess_tweets(self):
+        prep = self.raw_df.copy(deep=True)
+        prep["clean_text"] = prep[self._colname_tweets].apply(lambda x: self._clean_tweet(x))  # TODO: adjust colname if necessary
+        #prep.drop(self._colname_tweets, axis=1)
+        # TODO: removing empty tweets after preprocessing?
+
+        # assign to instance variable
+        self.preprocessed_df = prep
+
     def _clean_tweet(self, tweet):
         """
         remove urls, hashtag, quotes, RT, punctuation. Then tokenize and replace acronyms by their meaning,
@@ -408,15 +391,100 @@ class Analyzer:
         newTweet = " ".join(out).lower()
         return newTweet
 
+    def _predict_new_data(self, return_predictions=True, confusion_matrix=True, predictions_histogram = True):
+        y_prob = self._model.predict(self._x_test)
+        y_pred = (y_prob > 0.5).astype("int32")
+
+        self.evaluation_results = self._model.evaluate(x=self._x_test, y=self._y_test)
+        # match original tweet with predicted label
+        self.predicted_df = pd.DataFrame({self._colname_tweets: self.predicted_df[self._colname_tweets],
+                                          "predicted label": y_pred.flatten(),
+                                          "probability for positive label": y_prob.flatten().round(decimals=5)})
+
+        if confusion_matrix:
+            self._confusion_matrix_plot()
+
+        if predictions_histogram:
+            self._predictions_histogram()
+
+        if return_predictions:
+            return self.predicted_df
+
+    def _confusion_matrix_plot(self):
+        loss, binary_accuracy, tn, tp, fn, fp = self.evaluation_results
+
+        total_sum = tp + fp + tn + fn
+        cm_perc = [[tp / total_sum, fp / total_sum], [fn / total_sum, tn / total_sum]]
+
+        fig, ax = plt.subplots(nrows=1, ncols=1, figsize=(4, 4))
+        sns.heatmap(cm_perc, annot=True, vmax=1, vmin=0)
+        ax.set_xlabel('Actual Label')
+        ax.set_ylabel('Predicted Label')
+        ax.set_title('Confusion Matrix')
+        ax.xaxis.set_ticklabels(['Positive', 'Negative'])
+        ax.yaxis.set_ticklabels(['Positive', 'Negative'])
+
+    def _predictions_histogram(self):
+        fig_basic, ax = plt.subplots(nrows=1, ncols=1, figsize=(9, 7))
+        sns.set_style('white')
+        sns.histplot(data=self.predicted_df,
+                     x='probability for positive label',
+                     ax=ax, color='palegoldenrod',
+                     stat='probability', bins=101)
+        ax.set_ylabel('Relative Frequency')
+        ax.set_xlabel('Predicted Probability for Positive Sentiment')
+
+class ModelTrainer(Models):
+    def __init__(self, raw_data, model_folder_path, colname_tweets="text", colname_label="label"):
+        super().__init__(raw_data=raw_data, model_folder_path=model_folder_path,
+                         colname_tweets=colname_tweets, colname_label=colname_label)
+        self._x_train = None
+        self._y_train = None
+        self._word_index = None
+        self._vocab_size = None
+        self._max_length = None
+        self._training_specs = {"glove_dim": 50, "lstm_size": 64, "dropout_rate": 0.5, "n_epochs": 5, "batch_size": 128}
+
+    def train_model_on_data(self, overfitting_plot=True, save_model=True,
+                            training_specs=None):  # , glove_path="glove.twitter.27B.50d.txt"):
+        '''
+        Builds and trains model based on 70% training and 30% testing data.
+        :return:
+        '''
+        if training_specs is not None:
+            self._training_specs = training_specs
+
+        super()._preprocess_tweets()
+        self._prepare_model_input(chatty=True)
+        self._create_and_train_model()  # glove_path=glove_path)
+
+        # show training
+        if overfitting_plot:
+            self._overfitting_plot()
+
+        # save model
+        if save_model:
+            self._model.save(self._model_folder_path + "/model")
+
+    def evaluate_out_of_sample(self, return_predictions=False, confusion_matrix=True, predictions_histogram=True):
+        super()._predict_new_data(return_predictions=return_predictions, confusion_matrix=confusion_matrix,
+                                  predictions_histogram=predictions_histogram)
+
     def _prepare_model_input(self, chatty=False):
+        train_test_df, final_eval_df = train_test_split(self.preprocessed_df, test_size=0.1, random_state=7)
+        print("Shape of ... Training Data: ", train_test_df.shape, " ... Final Evaluation Data: ",
+              final_eval_df.shape)
+        #save final eval df for predictions
+        self.predicted_df = final_eval_df
+
         # Tokenization
         tokenizer = Tokenizer(oov_token='UNK')
-        tokenizer.fit_on_texts(self.train_test_df["clean_text"])  # Updates internal vocabulary based on training data
+        tokenizer.fit_on_texts(train_test_df["clean_text"])  # Updates internal vocabulary based on training data
         self._word_index = tokenizer.word_index  # maps words in our vocabulary to their numeric representation
 
         # Encode training data sentences into sequences: "My name is Matthew," to something like "6 8 2 19,"
-        train_seq = tokenizer.texts_to_sequences(self.train_test_df["clean_text"])
-        test_seq = tokenizer.texts_to_sequences(self.final_eval_df["clean_text"])
+        train_seq = tokenizer.texts_to_sequences(train_test_df["clean_text"])
+        test_seq = tokenizer.texts_to_sequences(final_eval_df["clean_text"])
         self._vocab_size = len(tokenizer.word_index) + 1
         if chatty: print("There were " + str(self._vocab_size) + " unique words found.")
 
@@ -427,10 +495,15 @@ class Analyzer:
         # apply padding and save training and testing data
         self._x_train = pad_sequences(train_seq, maxlen=self._max_length)
         self._x_test = pad_sequences(test_seq, maxlen=self._max_length)
-        self._y_train = np.array(self.train_test_df["label"].to_list())
-        self._y_test = np.array(self.final_eval_df["label"].to_list())
+        self._y_train = np.array(train_test_df[self._colname_label].to_list())
+        self._y_test = np.array(final_eval_df[self._colname_label].to_list())
 
-    def _create_and_train_model(self, glove_path):
+        # save tokenizer to use later:
+        tokenizer_json = tokenizer.to_json()
+        with io.open(self._model_folder_path + '/tokenizer.json', 'w', encoding='utf-8') as f:
+            f.write(json.dumps(tokenizer_json, ensure_ascii=False))
+
+    def _create_and_train_model(self):  # , glove_path):
 
         # get the pretrained word embedding
         # emb_dict = {}
@@ -463,54 +536,26 @@ class Analyzer:
         m.add(Dense(1, activation='sigmoid'))
 
         # adjust embedding layer
-        #m.layers[0].set_weights([emb_matrix])
+        # m.layers[0].set_weights([emb_matrix])
         m.layers[0].trainable = True
 
         # compile and train
         m.compile(optimizer='Adam', loss=tf.keras.losses.BinaryCrossentropy(),
                   metrics=[BinaryAccuracy(), TrueNegatives(), TruePositives(), FalseNegatives(), FalsePositives()])
-        self._model_trained = m.fit(self._x_train, self._y_train, epochs=self._training_specs.get("n_epochs"),
-                                              batch_size=self._training_specs.get("batch_size"),
-                                              verbose=1, validation_split=0.2)
+        hist = m.fit(self._x_train, self._y_train, epochs=self._training_specs.get("n_epochs"),
+                     batch_size=self._training_specs.get("batch_size"),
+                     verbose=1, validation_split=0.2)
         self._model = m
-        self.model_history = pd.DataFrame(self._model_trained.history)
+        self.model_history = pd.DataFrame(hist.history)
 
         return m
 
-    def train_model(self, save_model=True, model_path=None, training_specs=None, glove_path="glove.twitter.27B.50d.txt"):
-        '''
-        Builds and trains model based on 70% training and 30% testing data.
-        :return:
-        '''
-        if save_model and not model_path:
-            raise TypeError("Please provide model_path if save_model=True!")
-        if training_specs is not None:
-            self._training_specs = training_specs
-        self._prepare_model_input(chatty=True)
-        self._create_and_train_model(glove_path=glove_path)
-
-        # show training
-        self._overfitting_plot()
-        if save_model:
-            self._model.save(model_path)
-
-
-    def evaluate_out_of_sample(self):
-        '''
-        Evaluates the model performance on out-of-sample data
-        :return:
-        '''
-        # evaluate trained model with testing data
-
-        self.evaluation_results = self._model.evaluate(x=self._x_test, y=self._y_test)
-        #TODO: confusion matrix?
-
-        return self.evaluation_results
-
     def _overfitting_plot(self):
-        df = pd.DataFrame(data=np.repeat(['Training', 'Validation'], repeats=self._training_specs.get("n_epochs")), columns=['trainval'])
+        df = pd.DataFrame(data=np.repeat(['Training', 'Validation'], repeats=self._training_specs.get("n_epochs")),
+                          columns=['trainval'])
         df['xaxis'] = np.array([range(1, self._training_specs.get("n_epochs") + 1)] * 2).flatten()
-        df['binary_accuracy'] = np.array([self.model_history['binary_accuracy'], self.model_history['val_binary_accuracy']]).flatten()
+        df['binary_accuracy'] = np.array(
+            [self.model_history['binary_accuracy'], self.model_history['val_binary_accuracy']]).flatten()
         df['loss'] = np.array([self.model_history['loss'], self.model_history['val_loss']]).flatten()
 
         fig, axes = plt.subplots(nrows=1, ncols=2, figsize=(10, 5))
@@ -538,34 +583,38 @@ class Analyzer:
 
         plt.tight_layout()
 
-    def _confusion_matrix_plot(self):
-        loss, binary_accuracy, tn, tp, fn, fp = self.evaluation_results
 
-        cm = [[tp, fp],
-              [fn, tn]]
-        total_sum = tp + fp + tn + fn
-        cm_perc = [[tp / total_sum, fp / total_sum], [fn / total_sum, tn / total_sum]]
+class ModelApplier(Models):
+    def __init__(self, raw_data, model_folder_path, colname_tweets="text", colname_label="label"):
+        super().__init__(raw_data=raw_data, model_folder_path=model_folder_path,
+                         colname_tweets=colname_tweets, colname_label=colname_label)
+        self._model = models.load_model(model_folder_path + "/model")
+        self._padding_length = self._model.input_shape[1]  # length if inputs required for trained model
 
-        # evaluation criteria
-        # acc = (tp + tn) / total_sum
-        # precision = tp / (tp + fp)
-        # sensitivity = tp / (tp + fn)
-        # f1 = 2 * (precision * sensitivity) / (precision + sensitivity)
+    def _prepare_model_input(self):
+        # load tokenizer adjusted to training data
+        tokenizer_path = self._model_folder_path + '/tokenizer.json'
+        with open(tokenizer_path) as f:
+            json_data = json.load(f)
+            tokenizer = tokenizer_from_json(json_data)
 
-        fig, ax = plt.subplots(nrows=1, ncols=1, figsize=(4, 4))
-        sns.heatmap(cm_perc, annot=True, vmax=1, vmin=0)
-        sns.set_style({'font.family': 'serif', 'font.serif': 'Times New Roman'})
-        # labels, title and ticks
-        ax.set_xlabel('ACTUAL LABEL')
-        ax.set_ylabel('PREDICTED LABEL')
-        ax.set_title('Confusion Matrix')
-        ax.xaxis.set_ticklabels(['Positive', 'Negative'])
-        ax.yaxis.set_ticklabels(['Positive', 'Negative'])
-
+        # encode tweets with tokenizer trained on training data
+        self.preprocessed_df["clean_text"] = self.preprocessed_df["clean_text"].astype(str)
+        self.predicted_df = self.preprocessed_df # save for model evaluation
+        data_seq = tokenizer.texts_to_sequences(self.preprocessed_df["clean_text"])
 
 if __name__ == '__main__':
 
     # api access code
+        # Padding sequences to the length matching the model input
+        self._x_test = pad_sequences(data_seq, maxlen=self._padding_length)
+
+    def predict_new_data(self, return_predictions=True, predictions_histogram=True):
+        super()._preprocess_tweets()
+        self._prepare_model_input()
+        super()._predict_new_data(return_predictions=return_predictions, confusion_matrix=False,
+                                  predictions_histogram=predictions_histogram)
+
 
     access_token = os.environ.get('access_token')
     access_token_secret = os.environ.get('access_token_secret')
@@ -578,4 +627,14 @@ if __name__ == '__main__':
     dataRetr = DataRetriever()
     alazyer = Analyzer(DataRetriever=dataRetr)
 
-    exit()
+    # scraping the data
+    l = StdOutListener()
+    auth = OAuthHandler(consumer_key, consumer_secret)
+    auth.set_access_token(access_token, access_token_secret)
+
+    twitterStream = Stream(auth, l, wait_on_rate_limit=True,
+                                  wait_on_rate_limit_notify=True)
+    twitterStream.filter(track=["happy"], languages=["en"])
+
+
+    exit(0)
