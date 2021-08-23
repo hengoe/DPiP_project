@@ -627,14 +627,4 @@ if __name__ == '__main__':
     dataRetr = DataRetriever()
     analyzyer = Analyzer(DataRetriever=dataRetr)
 
-    # # scraping the data
-    # l = StdOutListener()
-    # auth = OAuthHandler(consumer_key, consumer_secret)
-    # auth.set_access_token(access_token, access_token_secret)
-    #
-    # twitterStream = Stream(auth, l, wait_on_rate_limit=True,
-    #                               wait_on_rate_limit_notify=True)
-    # twitterStream.filter(track=["happy"], languages=["en"])
-
-
     exit()
