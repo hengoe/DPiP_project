@@ -22,13 +22,9 @@ from keras.metrics import BinaryAccuracy, TrueNegatives, TruePositives, FalseNeg
 from tweepy.streaming import StreamListener
 from tweepy import OAuthHandler, Stream
 
+import os
+
 nltk.download("stopwords")
-
-
-# access_token = '1316724576412409858-yB2VaHqMk3fqbqj6C3wZJiKqCLNq9M'
-# access_token_secret = 'ue4nxVfxYgDcpjifiPCbSl4zhl5VOss0zgNaxGx3B7jil'
-# consumer_key = 'YBtHiebDFL58a96vO9QV7HjGP'
-# consumer_secret = 'N9E5ZrpYi04jG51DaOq5BxCEG8LKAgft7laFWEl7djCCFs6Uiu'
 
 
 class StdOutListener(StreamListener):
@@ -71,26 +67,40 @@ class DataRetriever:
         '''
 
         # get tweets
+        l = StdOutListener()
+        auth = tweepy.OAuthHandler(consumer_key, consumer_secret)
+        auth.set_access_token(access_token, access_token_secret)
 
- 
+        twitterStream = tweepy.Stream(auth, l, wait_on_rate_limit=True,
+                                      wait_on_rate_limit_notify=True)
+        #twitterStream.filter(track=["happy"], languages=["en"])
+        text_query = 'happy'
+        count = 150
+        try:
+            tweets = tweepy.Cursor(auth.search, q = text_query).items(int(count))
+        tweets_list = [
+                [tweet.created_at, tweet.id, tweet.text] for tweet in tweets
+            ]
+        tweets_df = pd.DataFrame(tweets_list)
         
-        
-        # make sure it is English
+        except BaseException as b:
+            print('failed', str(b))
+            time.sleep(3)
 
         # no duplicates
 
         # assign n tweets to raw_data
 
-        l = list()  # should contain only the tweets -> is a list of strings such as ["Today I feel good", "Hey world"]
+        lst = list()  # should contain only the tweets -> is a list of strings such as ["Today I feel good", "Hey world"]
 
         # assign retrieved Data to class fields
         if positive_sentiment == 1:
             self.pos_key = keyword
-            self._pos_data = pd.DataFrame({"label": np.tile(1, len(l)),
+            self._pos_data = pd.DataFrame({"label": np.tile(1, len(lst)),
                                            "text": l})
         elif positive_sentiment == 0:
             self.neg_key = keyword
-            self._neg_data = pd.DataFrame({"label": np.tile(0, len(l)),
+            self._neg_data = pd.DataFrame({"label": np.tile(0, len(lst)),
                                            "text": l})
 
     def get_data(self, pos_key, neg_key, N, save_to_csv=True, file_path=None):
@@ -552,25 +562,20 @@ class Analyzer:
         ax.xaxis.set_ticklabels(['Positive', 'Negative'])
         ax.yaxis.set_ticklabels(['Positive', 'Negative'])
 
-      
-    
-    
+
 if __name__ == '__main__':
 
-    # api access codes
+    # api access code
 
-    access_token = '1316724576412409858-yB2VaHqMk3fqbqj6C3wZJiKqCLNq9M'
-    access_token_secret = 'ue4nxVfxYgDcpjifiPCbSl4zhl5VOss0zgNaxGx3B7jil'
-    consumer_key = 'YBtHiebDFL58a96vO9QV7HjGP'
-    consumer_secret = 'N9E5ZrpYi04jG51DaOq5BxCEG8LKAgft7laFWEl7djCCFs6Uiu'
+    access_token = os.environ.get('access_token')
+    access_token_secret = os.environ.get('access_token_secret')
+    consumer_key = os.environ.get('consumer_key')
+    consumer_secret = os.environ.get('consumer_secret')
 
-    # scraping the data
-    l = StdOutListener()
-    auth = tweepy.OAuthHandler(consumer_key, consumer_secret)
-    auth.set_access_token(access_token, access_token_secret)
+    print(access_token)
 
-    twitterStream = tweepy.Stream(auth, l, wait_on_rate_limit=True,
-                                  wait_on_rate_limit_notify=True)
-    twitterStream.filter(track=["happy"], languages=["en"])
+    streamList = StdOutListener()
+    dataRetr = DataRetriever()
+    alazyer = Analyzer(DataRetriever=dataRetr)
 
-    exit()    
+    exit()
