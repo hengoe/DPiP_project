@@ -520,7 +520,7 @@ class ModelTrainer(Models):
 
         # build model
         m = models.Sequential()
-        m.add(Embedding(self._vocab_size, 50, input_length=self._max_length))
+        m.add(Embedding(self._vocab_size, self._training_specs.get("glove_dim"), input_length=self._max_length))
         m.add(LSTM(self._training_specs.get("lstm_size"), return_sequences=True))
         m.add(Dropout(rate=self._training_specs.get("dropout_rate")))
         m.add(LSTM(self._training_specs.get("lstm_size")))
@@ -543,6 +543,7 @@ class ModelTrainer(Models):
         return m
 
     def _overfitting_plot(self):
+        # create df for plots
         df = pd.DataFrame(data=np.repeat(['Training', 'Validation'], repeats=self._training_specs.get("n_epochs")),
                           columns=['trainval'])
         df['xaxis'] = np.array([range(1, self._training_specs.get("n_epochs") + 1)] * 2).flatten()
@@ -550,20 +551,19 @@ class ModelTrainer(Models):
             [self.model_history['binary_accuracy'], self.model_history['val_binary_accuracy']]).flatten()
         df['loss'] = np.array([self.model_history['loss'], self.model_history['val_loss']]).flatten()
 
+        # initialize plot
         fig, axes = plt.subplots(nrows=1, ncols=2, figsize=(10, 5))
-        # fig.subplots_adjust(wspace=.4, hspace=0.4)
-        # fig.suptitle('Performance on training and validation dataset', fontsize=24)
-
+        # accuracy plot
         sns.scatterplot(ax=axes[0], x=df['xaxis'], y=df['binary_accuracy'], hue=df['trainval'], palette='Dark2',
                         legend=False)
         sns.lineplot(ax=axes[0], x=df['xaxis'], y=df['binary_accuracy'], hue=df['trainval'], palette='Dark2', alpha=0.3,
                      estimator=None, legend=None)
         axes[0].legend().remove()
         axes[0].set_xlabel('Epoch', size=20)
-        axes[0].set_ylabel('Loss', size=20)
+        axes[0].set_ylabel('Accuracy', size=20)
         axes[0].tick_params(axis='both', which='major', labelsize=15)
         axes[0].yaxis.set_major_formatter(FormatStrFormatter('%.2f'))
-
+        # loss plot
         sns.scatterplot(ax=axes[1], x=df['xaxis'], y=df['loss'], hue=df['trainval'], palette='Dark2')
         sns.lineplot(ax=axes[1], x=df['xaxis'], y=df['loss'], hue=df['trainval'], palette='Dark2', alpha=0.3,
                      estimator=None, legend=None)
@@ -572,7 +572,6 @@ class ModelTrainer(Models):
         axes[1].set_ylabel('Loss', size=20)
         axes[1].tick_params(axis='both', which='major', labelsize=15)
         axes[1].yaxis.set_major_formatter(FormatStrFormatter('%.2f'))
-
         plt.tight_layout()
 
 
