@@ -1,4 +1,4 @@
-from code import DataRetriever, Analyzer
+from code import DataRetriever
 import unittest
 
 

@@ -72,7 +72,7 @@ class DataRetriever:
 
         twitterStream = Stream(auth, l, wait_on_rate_limit=True,
                                wait_on_rate_limit_notify=True)
-        #twitterStream.filter(track=["happy"], languages=["en"])
+        # twitterStream.filter(track=["happy"], languages=["en"])
 
         try:
             tweets = Cursor(auth.search, q=keyword).items(int(n))
@@ -314,8 +314,9 @@ class Models:
 
     def _preprocess_tweets(self):
         prep = self.raw_df.copy(deep=True)
-        prep["clean_text"] = prep[self._colname_tweets].apply(lambda x: self._clean_tweet(x))  # TODO: adjust colname if necessary
-        #prep.drop(self._colname_tweets, axis=1)
+        prep["clean_text"] = prep[self._colname_tweets].apply(
+            lambda x: self._clean_tweet(x))  # TODO: adjust colname if necessary
+        # prep.drop(self._colname_tweets, axis=1)
         # TODO: removing empty tweets after preprocessing?
 
         # assign to instance variable
@@ -382,7 +383,7 @@ class Models:
         newTweet = " ".join(out).lower()
         return newTweet
 
-    def _predict_new_data(self, return_predictions=True, confusion_matrix=True, predictions_histogram = True):
+    def _predict_new_data(self, return_predictions=True, confusion_matrix=True, predictions_histogram=True):
         y_prob = self._model.predict(self._x_test)
         y_pred = (y_prob > 0.5).astype("int32")
 
@@ -425,6 +426,7 @@ class Models:
         ax.set_ylabel('Relative Frequency')
         ax.set_xlabel('Predicted Probability for Positive Sentiment')
 
+
 class ModelTrainer(Models):
     def __init__(self, raw_data, model_folder_path, colname_tweets="text", colname_label="label"):
         super().__init__(raw_data=raw_data, model_folder_path=model_folder_path,
@@ -465,7 +467,7 @@ class ModelTrainer(Models):
         train_test_df, final_eval_df = train_test_split(self.preprocessed_df, test_size=0.1, random_state=7)
         print("Shape of ... Training Data: ", train_test_df.shape, " ... Final Evaluation Data: ",
               final_eval_df.shape)
-        #save final eval df for predictions
+        # save final eval df for predictions
         self.predicted_df = final_eval_df
 
         # Tokenization
@@ -494,28 +496,7 @@ class ModelTrainer(Models):
         with io.open(self._model_folder_path + '/tokenizer.json', 'w', encoding='utf-8') as f:
             f.write(json.dumps(tokenizer_json, ensure_ascii=False))
 
-    def _create_and_train_model(self):  # , glove_path):
-
-        # get the pretrained word embedding
-        # emb_dict = {}
-        # glove = open(glove_path)
-        # for line in glove:
-        #     values = line.split()
-        #     word = values[0]
-        #     vector = np.asarray(values[1:], dtype='float32')
-        #     emb_dict[word] = vector
-        # glove.close()
-        #
-        # # build embedding matrix to set weights for embedding layer
-        # emb_matrix = np.zeros((self._vocab_size, self._training_specs.get("glove_dim")))
-        # for w, i in self._word_index.items():
-        #     # if chatty: print(w)
-        #     if i < self._vocab_size:
-        #         vect = emb_dict.get(w)
-        #         if vect is not None:
-        #             emb_matrix[i] = vect
-        #     else:
-        #         break
+    def _create_and_train_model(self):
 
         # build model
         m = models.Sequential()
@@ -525,9 +506,6 @@ class ModelTrainer(Models):
         m.add(LSTM(self._training_specs.get("lstm_size")))
         m.add(Dropout(rate=self._training_specs.get("dropout_rate")))
         m.add(Dense(1, activation='sigmoid'))
-
-        # adjust embedding layer
-        # m.layers[0].set_weights([emb_matrix])
         m.layers[0].trainable = True
 
         # compile and train
@@ -591,14 +569,11 @@ class ModelApplier(Models):
 
         # encode tweets with tokenizer trained on training data
         self.preprocessed_df["clean_text"] = self.preprocessed_df["clean_text"].astype(str)
-        self.predicted_df = self.preprocessed_df # save for model evaluation
+        self.predicted_df = self.preprocessed_df  # save for model evaluation
         data_seq = tokenizer.texts_to_sequences(self.preprocessed_df["clean_text"])
 
-if __name__ == '__main__':
-
-    # api access code
         # Padding sequences to the length matching the model input
-    self._x_test = pad_sequences(data_seq, maxlen=self._padding_length)
+        self._x_test = pad_sequences(data_seq, maxlen=self._padding_length)
 
     def predict_new_data(self, return_predictions=True, predictions_histogram=True):
         super()._preprocess_tweets()
@@ -607,6 +582,9 @@ if __name__ == '__main__':
                                   predictions_histogram=predictions_histogram)
 
 
+if __name__ == '__main__':
+    # api access code
+
     access_token = os.environ.get('access_token')
     access_token_secret = os.environ.get('access_token_secret')
     consumer_key = os.environ.get('consumer_key')
@@ -614,8 +592,8 @@ if __name__ == '__main__':
 
     print(access_token)
 
-    streamList = StdOutListener()
-    dataRetr = DataRetriever()
-    analyzyer = Analyzer(DataRetriever=dataRetr)
+    #streamList = StdOutListener()
+    #dataRetr = DataRetriever()
+    #analyzyer = Analyzer(DataRetriever=dataRetr)
 
     exit()
