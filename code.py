@@ -436,7 +436,7 @@ class ModelTrainer(Models):
         self._word_index = None
         self._vocab_size = None
         self._max_length = None
-        self._training_specs = {"lstm_size": 64, "dropout_rate": 0.5, "n_epochs": 5, "batch_size": 128}
+        self._training_specs = {"glove_dim": 50, "lstm_size": 64, "dropout_rate": 0.5, "n_epochs": 5, "batch_size": 128}
 
     def train_model_on_data(self, glove_path, overfitting_plot=True, save_model=True,
                             training_specs=None):
