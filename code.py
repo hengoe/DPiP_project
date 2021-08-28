@@ -436,10 +436,10 @@ class ModelTrainer(Models):
         self._word_index = None
         self._vocab_size = None
         self._max_length = None
-        self._training_specs = {"glove_dim": 50, "lstm_size": 64, "dropout_rate": 0.5, "n_epochs": 5, "batch_size": 128}
+        self._training_specs = {"lstm_size": 64, "dropout_rate": 0.5, "n_epochs": 5, "batch_size": 128}
 
     def train_model_on_data(self, overfitting_plot=True, save_model=True,
-                            training_specs=None):  # , glove_path="glove.twitter.27B.50d.txt"):
+                            training_specs=None):
         '''
         Builds and trains model based on 70% training and 30% testing data.
         :return:
@@ -449,7 +449,7 @@ class ModelTrainer(Models):
 
         super()._preprocess_tweets()
         self._prepare_model_input(chatty=True)
-        self._create_and_train_model()  # glove_path=glove_path)
+        self._create_and_train_model()
 
         # show training
         if overfitting_plot:
@@ -500,7 +500,7 @@ class ModelTrainer(Models):
 
         # build model
         m = models.Sequential()
-        m.add(Embedding(self._vocab_size, self._training_specs.get("glove_dim"), input_length=self._max_length))
+        m.add(Embedding(self._vocab_size, 50, input_length=self._max_length))
         m.add(LSTM(self._training_specs.get("lstm_size"), return_sequences=True))
         m.add(Dropout(rate=self._training_specs.get("dropout_rate")))
         m.add(LSTM(self._training_specs.get("lstm_size")))
