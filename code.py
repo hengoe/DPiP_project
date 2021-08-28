@@ -438,7 +438,7 @@ class ModelTrainer(Models):
         self._max_length = None
         self._training_specs = {"lstm_size": 64, "dropout_rate": 0.5, "n_epochs": 5, "batch_size": 128}
 
-    def train_model_on_data(self, overfitting_plot=True, save_model=True,
+    def train_model_on_data(self, glove_path, overfitting_plot=True, save_model=True,
                             training_specs=None):
         '''
         Builds and trains model based on 70% training and 30% testing data.
@@ -449,7 +449,7 @@ class ModelTrainer(Models):
 
         super()._preprocess_tweets()
         self._prepare_model_input(chatty=True)
-        self._create_and_train_model()
+        self._create_and_train_model(glove_path=glove_path)
 
         # show training
         if overfitting_plot:
@@ -496,7 +496,27 @@ class ModelTrainer(Models):
         with io.open(self._model_folder_path + '/tokenizer.json', 'w', encoding='utf-8') as f:
             f.write(json.dumps(tokenizer_json, ensure_ascii=False))
 
-    def _create_and_train_model(self):
+    def _create_and_train_model(self, glove_path):
+        # get the pretrained word embedding
+        emb_dict = {}
+        glove = open(glove_path)
+        for line in glove:
+            values = line.split()
+            word = values[0]
+            vector = np.asarray(values[1:], dtype='float32')
+            emb_dict[word] = vector
+        glove.close()
+
+        # build embedding matrix to set weights for embedding layer
+        emb_matrix = np.zeros((self._vocab_size, self._training_specs.get("glove_dim")))
+        for w, i in self._word_index.items():
+            # if chatty: print(w)
+            if i < self._vocab_size:
+                vect = emb_dict.get(w)
+                if vect is not None:
+                    emb_matrix[i] = vect
+            else:
+                break
 
         # build model
         m = models.Sequential()
@@ -506,7 +526,10 @@ class ModelTrainer(Models):
         m.add(LSTM(self._training_specs.get("lstm_size")))
         m.add(Dropout(rate=self._training_specs.get("dropout_rate")))
         m.add(Dense(1, activation='sigmoid'))
-        m.layers[0].trainable = True
+
+        # adjust embedding layer
+        m.layers[0].set_weights([emb_matrix])
+        m.layers[0].trainable = False # prevent overfitting
 
         # compile and train
         m.compile(optimizer='Adam', loss=tf.keras.losses.BinaryCrossentropy(),
