@@ -41,14 +41,10 @@ class StdOutListener(StreamListener):
 
 
 class DataRetriever:
-    '''
-    After creating an instance of this class, the user can retrieve data for two keywords (e.g. ":)" and ":(" or
-    "happy" and "sad".
-    '''
-
     def __init__(self):
         '''
-        Creates empty DataFrames and strings as instance variables.
+        After creating an instance of this class, the user can retrieve data for two keywords (e.g. ":)" and ":(" or
+        "happy" and "sad" with the function get_data().
         '''
         self.pos_key = ""
         self.neg_key = ""
@@ -56,13 +52,12 @@ class DataRetriever:
 
     def _retrieve_tweets(self, keyword, positive_sentiment, n):
         '''
-
-        Retrieves data from Twitter according to the keyword argument.
+        Internal function to retrieve data from Twitter according to the keyword argument.
 
         :param keyword: string specifying the word or emoticon to retrieve tweets with.
         :param positive_sentiment: boolean. 0 if negative, 1 if positive
         :param n: number of tweets to retrieve
-        :return:
+        :return: pd.DataFrame with information on time, id, text and sentiment of tweets retrieved.
         '''
 
         # get tweets
@@ -97,12 +92,14 @@ class DataRetriever:
 
     def get_data(self, pos_key, neg_key, N, save_to_csv=True, file_path=None):
         '''
-        Called to retrieve the data.
+        Retrieve tweets according to the specified keywords. Optionally save the data as csv to prespecified path.
 
+        :param save_to_csv: if True data is saved to specified path (file_path).
+        :param file_path: file path to save the retrieved data to.
         :param pos_key: string specifying the word or emoticon to retrieve positive tweets with.
         :param neg_key: string specifying the word or emoticon to retrieve negative tweets with.
         :param N: int specifying the total number of tweets. There will be N/2 positive tweets and N/2 negative tweets
-        :return:
+        :return: retrieved data with information on time, id, text and sentiment of tweets retrieved.
         '''
         if save_to_csv and not file_path:
             raise TypeError("Please provide file_path if save_to_csv=True!")
@@ -111,6 +108,7 @@ class DataRetriever:
         positive_tweets = self._retrieve_tweets(keyword=pos_key, positive_sentiment=1, n=N / 2)
         negative_tweets = self._retrieve_tweets(keyword=neg_key, positive_sentiment=0, n=N / 2)
 
+        # TODO adjust column names
         # merge retrieved data
         self.raw_data = pd.concat([negative_tweets, positive_tweets], ignore_index=True)
 
@@ -299,11 +297,18 @@ class Models:
         "shouldn't",
         "shouldnt"]
 
-    def __init__(self, raw_data, model_folder_path, colname_tweets, colname_label):
+    def __init__(self, raw_data, model_folder_path, colname_tweets):
+        """
+        Parent class for ModelTrainer and Modelapplier.
+
+        :param raw_data: pd.DataFrame containing the raw data.
+        :param model_folder_path: path the model should be saved to or loaded from.
+        :param colname_tweets: string specifying the column name of the column with the tweets.
+        """
         self._model_folder_path = model_folder_path
         self.raw_df = raw_data  # todo make sure correct format
         self._colname_tweets = colname_tweets
-        self._colname_label = colname_label
+
         self.preprocessed_df = None
         self.predicted_df = None
         self._y_test = None
@@ -313,6 +318,9 @@ class Models:
         self.evaluation_results = None
 
     def _preprocess_tweets(self):
+        """
+        Internal function to apply preprocessing to the raw data.
+        """
         prep = self.raw_df.copy(deep=True)
         prep["clean_text"] = prep[self._colname_tweets].apply(
             lambda x: self._clean_tweet(x))  # TODO: adjust colname if necessary
@@ -324,8 +332,9 @@ class Models:
 
     def _clean_tweet(self, tweet):
         """
-        remove urls, hashtag, quotes, RT, punctuation. Then tokenize and replace acronyms by their meaning,
-        negations by "not" and swear words by "bad_word". Remove stopwords and convert to lower.
+        Internal function to by applied to a single tweet. Removes urls, hashtag, quotes, RT, punctuation.
+        Then tokenizes and replaces acronyms by their meaning, negations by "not" and swear words by "bad_word".
+        Removes stopwords and converts to lower.
 
         :param tweet: a string containing to tweet to be cleaned.
         :return: a string of the clean tweet.
@@ -384,6 +393,16 @@ class Models:
         return newTweet
 
     def _predict_new_data(self, return_predictions=True, confusion_matrix=True, predictions_histogram=True):
+        """
+        Internal function to predict the sentiment of data (either validation data or new data)
+
+        :param return_predictions: if True it returns a DataFrame containing the tweets, the assigned label and
+        their probability for a positive sentiment.
+        :param confusion_matrix: if True print a confusion matrix
+        :param predictions_histogram: if True print a histogram showing the distribution of predicted probabilities.
+        :return: DataFrame containing the tweets, the assigned label and
+        their probability for a positive sentiment (if return_predictions=True)
+        """
         y_prob = self._model.predict(self._x_test)
         y_pred = (y_prob > 0.5).astype("int32")
 
@@ -403,6 +422,9 @@ class Models:
             return self.predicted_df
 
     def _confusion_matrix_plot(self):
+        """
+        Internal function creating a confusion matrix based on self.evaluation_results.
+        """
         loss, binary_accuracy, tn, tp, fn, fp = self.evaluation_results
 
         total_sum = tp + fp + tn + fn
@@ -417,6 +439,9 @@ class Models:
         ax.yaxis.set_ticklabels(['Positive', 'Negative'])
 
     def _predictions_histogram(self):
+        """
+        Internal function creating a histogram of predicted probabilites for positive label based on self.predicted_df.
+        """
         fig_basic, ax = plt.subplots(nrows=1, ncols=1, figsize=(9, 7))
         sns.set_style('white')
         sns.histplot(data=self.predicted_df,
@@ -429,10 +454,21 @@ class Models:
 
 class ModelTrainer(Models):
     def __init__(self, raw_data, model_folder_path, colname_tweets="text", colname_label="label"):
+        """
+        ModelTrainer allows to train a binary classifier to predict the sentiment of tweets (positive/negative).
+        The model is trained on 90% of the data and can later be evaluated out-of-sample using the remaining 10%.
+        The trained LSTM model can be saved to use it later.
+
+        :param raw_data: pd.DataFrame containing the tweets and sentiment to train the model on.
+        :param model_folder_path: path the model should be saved to.
+        :param colname_tweets: string specifying the column name of the column with the tweets.
+        :param colname_label: string specifying the column name of the column with the sentiment.
+        """
         super().__init__(raw_data=raw_data, model_folder_path=model_folder_path,
-                         colname_tweets=colname_tweets, colname_label=colname_label)
+                         colname_tweets=colname_tweets)
         self._x_train = None
         self._y_train = None
+        self._colname_label = colname_label
         self._word_index = None
         self._vocab_size = None
         self._max_length = None
@@ -441,14 +477,22 @@ class ModelTrainer(Models):
     def train_model_on_data(self, glove_path, overfitting_plot=True, save_model=True,
                             training_specs=None):
         '''
-        Builds and trains model based on 70% training and 30% testing data.
-        :return:
+        Builds and trains deep LSTM model with embedding layer based on pretrained glove embedding. It consists of
+        embedding layer, LSTm layer, dropout layer, LSTM layer, dropout layer and dense layer.
+
+        :param glove_path: path to the glove data.
+        :param overfitting_plot: if True an overfitting plot it returned.
+        :param save_model: if True the model is saved to the prespecified model_folder_path.
+        :param training_specs: optional. Dictionary containing training specifidations. If nothing it specified,
+        {"glove_dim": 50, "lstm_size": 64, "dropout_rate": 0.5, "n_epochs": 5, "batch_size": 128} is used.
+
+        :return the trained model.
         '''
         if training_specs is not None:
             self._training_specs = training_specs
 
         super()._preprocess_tweets()
-        self._prepare_model_input(chatty=True)
+        self._prepare_model_input(save_model = save_model)
         self._create_and_train_model(glove_path=glove_path)
 
         # show training
@@ -459,14 +503,33 @@ class ModelTrainer(Models):
         if save_model:
             self._model.save(self._model_folder_path + "/model")
 
+        return self._model
+
     def evaluate_out_of_sample(self, return_predictions=False, confusion_matrix=True, predictions_histogram=True):
+        """
+        Evaluates the trained model on the 10% out-of-sample data and provides helpful graphics to assess the model's
+        perfomrance on data that it has not seen before.
+
+        :param return_predictions: if True it returns a DataFrame containing the tweets, the assigned label and
+        their probability for a positive sentiment.
+        :param confusion_matrix: if True print a confusion matrix
+        :param predictions_histogram: if True print a histogram showing the distribution of predicted probabilities.
+        :return: DataFrame containing the tweets, the assigned label and
+        their probability for a positive sentiment (if return_predictions=True)
+        """
         super()._predict_new_data(return_predictions=return_predictions, confusion_matrix=confusion_matrix,
                                   predictions_histogram=predictions_histogram)
 
-    def _prepare_model_input(self, chatty=False):
+    def _prepare_model_input(self, save_model):
+        """
+        Internal function preparing the model input. The prepocessed data is tokenized, transformed to sequences
+        :param save_model: if True, Tokenizer is saved to be applied to new data later. This is necessary if new
+        data should be classified with a saved model.
+        """
         train_test_df, final_eval_df = train_test_split(self.preprocessed_df, test_size=0.1, random_state=7)
         print("Shape of ... Training Data: ", train_test_df.shape, " ... Final Evaluation Data: ",
               final_eval_df.shape)
+
         # save final eval df for predictions
         self.predicted_df = final_eval_df
 
@@ -479,11 +542,10 @@ class ModelTrainer(Models):
         train_seq = tokenizer.texts_to_sequences(train_test_df["clean_text"])
         test_seq = tokenizer.texts_to_sequences(final_eval_df["clean_text"])
         self._vocab_size = len(tokenizer.word_index) + 1
-        if chatty: print("There were " + str(self._vocab_size) + " unique words found.")
+        print("There were " + str(self._vocab_size) + " unique words found.")
 
         # Padding sequences to same length
         self._max_length = max([len(x) for x in train_seq])
-        if chatty: print('Max length of tweet (number of words): ' + str(self._max_length))
 
         # apply padding and save training and testing data
         self._x_train = pad_sequences(train_seq, maxlen=self._max_length)
@@ -491,12 +553,18 @@ class ModelTrainer(Models):
         self._y_train = np.array(train_test_df[self._colname_label].to_list())
         self._y_test = np.array(final_eval_df[self._colname_label].to_list())
 
-        # save tokenizer to use later:
-        tokenizer_json = tokenizer.to_json()
-        with io.open(self._model_folder_path + '/tokenizer.json', 'w', encoding='utf-8') as f:
-            f.write(json.dumps(tokenizer_json, ensure_ascii=False))
+        # save tokenizer to use later if model should be saved
+        if save_model:
+            tokenizer_json = tokenizer.to_json()
+            with io.open(self._model_folder_path + '/tokenizer.json', 'w', encoding='utf-8') as f:
+                f.write(json.dumps(tokenizer_json, ensure_ascii=False))
 
     def _create_and_train_model(self, glove_path):
+        """
+        Internal function to create and train the LSTM model.
+        :param glove_path: path specifying where the pretrained embedding is saved.
+        :return:
+        """
         # get the pretrained word embedding
         emb_dict = {}
         glove = open(glove_path)
@@ -540,9 +608,12 @@ class ModelTrainer(Models):
         self._model = m
         self.model_history = pd.DataFrame(hist.history)
 
-        return m
-
     def _overfitting_plot(self):
+        """
+        Internal function to create an overfitting plot. This allows to monitor overfitting in the training process.
+        Overfitting is indicated by either an increasing loss or an accuracy that is higher in the training data
+        than in the test data.
+        """
         # create df for plots
         df = pd.DataFrame(data=np.repeat(['Training', 'Validation'], repeats=self._training_specs.get("n_epochs")),
                           columns=['trainval'])
@@ -576,13 +647,23 @@ class ModelTrainer(Models):
 
 
 class ModelApplier(Models):
-    def __init__(self, raw_data, model_folder_path, colname_tweets="text", colname_label="label"):
+    def __init__(self, raw_data, model_folder_path, colname_tweets="text"):
+        """
+        Loads a pretrained model and predicts new data.
+        :param raw_data: a pd.DataFrame containing
+        :param model_folder_path:
+        :param colname_tweets:
+        """
         super().__init__(raw_data=raw_data, model_folder_path=model_folder_path,
-                         colname_tweets=colname_tweets, colname_label=colname_label)
+                         colname_tweets=colname_tweets)
         self._model = models.load_model(model_folder_path + "/model")
         self._padding_length = self._model.input_shape[1]  # length if inputs required for trained model
 
     def _prepare_model_input(self):
+        """
+        Internal function to prepare the model input. The saved tokenizer is loaded and the the preprocessed data
+        is tokenized, padded and saved.
+        """
         # load tokenizer adjusted to training data
         tokenizer_path = self._model_folder_path + '/tokenizer.json'
         with open(tokenizer_path) as f:
@@ -598,6 +679,16 @@ class ModelApplier(Models):
         self._x_test = pad_sequences(data_seq, maxlen=self._padding_length)
 
     def predict_new_data(self, return_predictions=True, predictions_histogram=True):
+        """
+        Applies preprocessing to tweets, prepares the model input and predicts sentiment for raw data
+
+        :param return_predictions: if True it returns a DataFrame containing the tweets, the assigned label and
+        their probability for a positive sentiment.
+        :param predictions_histogram: if True print a histogram showing the distribution of predicted probabilities.
+
+        :return: DataFrame containing the tweets, the assigned label and
+        their probability for a positive sentiment (if return_predictions=True)
+        """
         super()._preprocess_tweets()
         self._prepare_model_input()
         super()._predict_new_data(return_predictions=return_predictions, confusion_matrix=False,
