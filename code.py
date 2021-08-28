@@ -22,7 +22,8 @@ from keras.preprocessing.sequence import pad_sequences
 from keras.metrics import BinaryAccuracy, TrueNegatives, TruePositives, FalseNegatives, FalsePositives
 
 from tweepy.streaming import StreamListener
-from tweepy import OAuthHandler, Stream
+from tweepy import OAuthHandler, Stream, Cursor
+import time
 
 import os
 
@@ -50,9 +51,7 @@ class DataRetriever:
         Creates empty DataFrames and strings as instance variables.
         '''
         self.pos_key = ""
-        self._pos_data = pd.DataFrame()
         self.neg_key = ""
-        self._neg_data = pd.DataFrame()
         self.raw_data = pd.DataFrame()  # both positive & negative tweets
 
     def _retrieve_tweets(self, keyword, positive_sentiment, n):
@@ -67,42 +66,34 @@ class DataRetriever:
         '''
 
         # get tweets
-
         l = StdOutListener()
-        auth = tweepy.OAuthHandler(consumer_key, consumer_secret)
+        auth = OAuthHandler(consumer_key, consumer_secret)
         auth.set_access_token(access_token, access_token_secret)
 
-        twitterStream = tweepy.Stream(auth, l, wait_on_rate_limit=True,
-                                      wait_on_rate_limit_notify=True)
+        twitterStream = Stream(auth, l, wait_on_rate_limit=True,
+                               wait_on_rate_limit_notify=True)
         #twitterStream.filter(track=["happy"], languages=["en"])
-        text_query = 'happy'
-        count = 150
+
         try:
-            tweets = tweepy.Cursor(auth.search, q = text_query).items(int(count))
-        tweets_list = [
-                [tweet.created_at, tweet.id, tweet.text] for tweet in tweets
-            ]
-        tweets_df = pd.DataFrame(tweets_list)
-        
+            tweets = Cursor(auth.search, q=keyword).items(int(n))
+            tweets_list = [[tweet.created_at, tweet.id, tweet.text] for tweet in tweets]
+            tweets_df = pd.DataFrame(tweets_list)
         except BaseException as b:
             print('failed', str(b))
             time.sleep(3)
 
-        # no duplicates
-
-        # assign n tweets to raw_data
-
-        lst = list()  # should contain only the tweets -> is a list of strings such as ["Today I feel good", "Hey world"]
-
         # assign retrieved Data to class fields
         if positive_sentiment == 1:
             self.pos_key = keyword
-            self._pos_data = pd.DataFrame({"label": np.tile(1, len(lst)),
-                                           "text": l})
+            label = np.tile(1, tweets_df.shape[0])
+
         elif positive_sentiment == 0:
             self.neg_key = keyword
-            self._neg_data = pd.DataFrame({"label": np.tile(0, len(lst)),
-                                           "text": l})
+            label = np.tile(0, tweets_df.shape[0])
+
+        tweets_df["label"] = label
+
+        return tweets_df
 
     def get_data(self, pos_key, neg_key, N, save_to_csv=True, file_path=None):
         '''
@@ -117,11 +108,11 @@ class DataRetriever:
             raise TypeError("Please provide file_path if save_to_csv=True!")
 
         # call _retrieve_tweets fpr positive and negative sentiment, retrieving half of the desired number of tweets in each case
-        self._retrieve_tweets(keyword=pos_key, positive_sentiment=1, n=N / 2)
-        self._retrieve_tweets(keyword=neg_key, positive_sentiment=0, n=N / 2)
+        positive_tweets = self._retrieve_tweets(keyword=pos_key, positive_sentiment=1, n=N / 2)
+        negative_tweets = self._retrieve_tweets(keyword=neg_key, positive_sentiment=0, n=N / 2)
 
         # merge retrieved data
-        self.raw_data = pd.concat([self._neg_data, self._pos_data], ignore_index=True)
+        self.raw_data = pd.concat([negative_tweets, positive_tweets], ignore_index=True)
 
         if save_to_csv:
             self.raw_data.to_csv(file_path)
