@@ -27,7 +27,7 @@ import time
 
 import os
 
-nltk.download("stopwords")
+# nltk.download("stopwords")
 
 
 class DataRetriever:
@@ -62,21 +62,18 @@ class DataRetriever:
         # api for further tweets download
         api = tweepy.API(auth)
         
-        try:
-            tweets = tweepy.Cursor(api.search, q=keyword).items(int(n_tweets))
+        # try:
+        tweets = tweepy.Cursor(api.search, q=keyword).items(int(n_tweets))
     
-            tweets_list = [
-                    [tweet.created_at,tweet.text] 
+        tweets_list = [
+                    [tweet.created_at, tweet.id, tweet.text]
                     for tweet in tweets]
-            # dataframe with all the data
-            # 1 is identified, so only the column with text data is sent 
-            # (since we might not need id, data and text info that much)
-            tweets_df = pd.DataFrame(tweets_list)[1]
 
-        except BaseException as b:
-            print('failed', str(b))
-            time.sleep(3)
+        tweets_df = pd.DataFrame(tweets_list)
 
+        # except BaseException as b:
+        #     print('failed', str(b))
+        #     time.sleep(3)
 
         if tweets_df is not None:
             # assign retrieved Data to class fields
@@ -88,7 +85,7 @@ class DataRetriever:
                 self.neg_key = keyword
                 label = np.tile(0, tweets_df.shape[0])
 
-            tweets_df["label"] = label
+                tweets_df["label"] = label
 
             return tweets_df
 
