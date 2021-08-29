@@ -48,7 +48,8 @@ class DataRetriever:
         '''
         self.pos_key = ""
         self.neg_key = ""
-        self.raw_data = pd.DataFrame()  # both positive & negative tweets
+        self.training_data = pd.DataFrame() # half positive & half negative tweets
+        self.realistic_data = pd.DataFrame() # tweets that contain the topic_key regardless of the sentiment
 
     def _retrieve_tweets(self, keyword, positive_sentiment, n):
         '''
@@ -91,15 +92,30 @@ class DataRetriever:
 
             return tweets_df
 
-    def get_data(self, pos_key, neg_key, N, save_to_csv=True, file_path=None):
-        '''
-        Retrieve tweets according to the specified keywords. Optionally save the data as csv to prespecified path.
+    def _drop_keyword_from_text(self, tweet, word_to_drop):
+        """
+        Internal function to drop a keyword from a string.
+        :param tweet: string the keyword should be dropped from.
+        :param word_to_drop: string wf the keyword to drop
+        :return: string of tweet without keyword.
+        """
+        clean_tweet = re.sub(word_to_drop, " ", tweet)
+        return clean_tweet
 
+    def get_training_data(self, topic_key, pos_key="\:\)", neg_key="\:\(", N=100000, save_to_csv=True, file_path=None):
+        '''
+        Retrieve tweets according to the specified keywords. For training purposes it is important to have evenly
+         distributed classes and therefore half positive and half negative tweets will be retrieved.
+         Optionally save the data as csv to prespecified path.
+
+        :param topic_key: string specifying the word to retrieve tweets for.
+        :param pos_key: string specifying the word or emoticon to retrieve positive tweets with. Make sure to escape
+        characters if necessary, e.g. instead of pos_key = ":)" put pos_key = "\:\)".
+        :param neg_key: string specifying the word or emoticon to retrieve negative tweets with. Make sure to escape
+        characters if necessary, e.g. instead of neg_key = ":(" put neg_key = "\:\(".
+        :param N: int specifying the total number of tweets. There will be N/2 positive tweets and N/2 negative tweets
         :param save_to_csv: if True data is saved to specified path (file_path).
         :param file_path: file path to save the retrieved data to.
-        :param pos_key: string specifying the word or emoticon to retrieve positive tweets with.
-        :param neg_key: string specifying the word or emoticon to retrieve negative tweets with.
-        :param N: int specifying the total number of tweets. There will be N/2 positive tweets and N/2 negative tweets
         :return: retrieved data with information on time, id, text and sentiment of tweets retrieved.
         '''
         if save_to_csv and not file_path:
@@ -111,16 +127,51 @@ class DataRetriever:
 
         # merge retrieved data
         temp = pd.concat([negative_tweets, positive_tweets], ignore_index=True)
-        temp.columns = ["time", "id", "text"]
+        temp.columns = ["time", "id", "text", "label"]
 
         # remove duplicates
         temp = temp.drop_duplicates(subset="text")
+        # drop keywords from tweets because the classifier would easily detect that the pos_key is the safe indicator
+        # for positive tweets and vice versa. In the realistic data these positive/negative keys are not necessarily
+        # included.
+        temp["text"] = temp["text"].apply(self._drop_keyword_from_text, args=(topic_key,))
+        temp["text"] = temp["text"].apply(self._drop_keyword_from_text, args=(pos_key,))
+        temp["text"] = temp["text"].apply(self._drop_keyword_from_text, args=(neg_key,))
 
-        self.raw_data = temp
+        self.training_data = temp
         if save_to_csv:
-            self.raw_data.to_csv(file_path)
+            self.training_data.to_csv(file_path + "/training_data.csv")
 
-        return self.raw_data
+        return self.training_data
+
+    def get_realistic_data(self, topic_key, N, save_to_csv=True, file_path=None):
+        '''
+        Retrieve tweets according to the specified keyword. There will be no attention paid to the sentiment that might
+        be included in the tweet. Thus, this function retrieves a realistic distribution of tweets for the specified
+        keyword to be further analyzed. This helps to do a market analysis regarding the overall sentiment Twitter
+        users have for the specified topic. Optionally save the data as csv to prespecified path.
+
+        :param topic_key: string specifying the word to retrieve tweets for.
+        :param N: int specifying the total number of tweets.
+        :param save_to_csv: if True data is saved to specified path (file_path).
+        :param file_path: file path to save the retrieved data to.
+        :return: retrieved data with information on time, id, text and sentiment of tweets retrieved.
+        '''
+        if save_to_csv and not file_path:
+            raise TypeError("Please provide file_path if save_to_csv=True!")
+
+        # get tweets according to keyword
+        realistic_tweets = self._retrieve_tweets(keyword=topic_key, positive_sentiment=1, n=N)
+        realistic_tweets.columns = ["time", "id", "text", "label"]
+
+        # drop keyword from tweets
+        realistic_tweets["text"] = realistic_tweets["text"].apply(self._drop_keyword_from_text, args=(topic_key,))
+
+        self.realistic_data = realistic_tweets
+        if save_to_csv:
+            self.realistic_data.to_csv(file_path + "/realistic_data.csv")
+
+        return self.realistic_data
 
 
 class Models:

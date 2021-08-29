@@ -6,7 +6,7 @@ class TestPreprocessing(unittest.TestCase):
     def test_clean_tweet(self):
         # initialize DataRetriever
         retr = DataRetriever()
-        retr.raw_data = retr.testdata
+        retr.training_data = retr.testdata
 
         # initialize Analyzer
         analy = Analyzer(retr)
