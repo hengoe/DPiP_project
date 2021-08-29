@@ -30,16 +30,6 @@ import os
 nltk.download("stopwords")
 
 
-class StdOutListener(StreamListener):
-
-    def on_data(self, data):
-        print(data)
-        return True
-
-    def on_error(self, status):
-        print(status)
-
-
 class DataRetriever:
     def __init__(self):
         '''
@@ -50,8 +40,11 @@ class DataRetriever:
         self.neg_key = ""
         self.training_data = pd.DataFrame() # half positive & half negative tweets
         self.realistic_data = pd.DataFrame() # tweets that contain the topic_key regardless of the sentiment
-
-    def _retrieve_tweets(self, keyword, positive_sentiment, n):
+    
+    # we need to assign access token, access token secret, consumer key, consumer secret to this function
+    def _retrieve_tweets(self, keyword, positive_sentiment, n, 
+                        access_token, access_token_secret, 
+                         consumer_key, consumer_secret):
         '''
         Internal function to retrieve data from Twitter according to the keyword argument.
 
@@ -62,21 +55,28 @@ class DataRetriever:
         '''
 
         # get tweets
-        l = StdOutListener()
+        
         auth = OAuthHandler(consumer_key, consumer_secret)
         auth.set_access_token(access_token, access_token_secret)
-
-        twitterStream = Stream(auth, l, wait_on_rate_limit=True,
-                               wait_on_rate_limit_notify=True)
-        # twitterStream.filter(track=["happy"], languages=["en"])
-
+        
+        # api for further tweets download
+        api = tweepy.API(auth)
+        
         try:
-            tweets = Cursor(auth.search, q=keyword).items(int(n))
-            tweets_list = [[tweet.created_at, tweet.id, tweet.text] for tweet in tweets]
-            tweets_df = pd.DataFrame(tweets_list)
+            tweets = tweepy.Cursor(api.search, q=keyword).items(int(n_tweets))
+    
+            tweets_list = [
+                    [tweet.created_at,tweet.text] 
+                    for tweet in tweets]
+            # dataframe with all the data
+            # 1 is identified, so only the column with text data is sent 
+            # (since we might not need id, data and text info that much)
+            tweets_df = pd.DataFrame(tweets_list)[1]
+
         except BaseException as b:
             print('failed', str(b))
             time.sleep(3)
+
 
         if tweets_df is not None:
             # assign retrieved Data to class fields
