@@ -81,7 +81,7 @@ class DataRetriever:
                 self.neg_key = keyword
                 label = np.tile(0, tweets_df.shape[0])
 
-                tweets_df["label"] = label
+            tweets_df["label"] = label
 
             return tweets_df
 
