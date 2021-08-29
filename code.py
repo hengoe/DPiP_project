@@ -77,18 +77,19 @@ class DataRetriever:
             print('failed', str(b))
             time.sleep(3)
 
-        # assign retrieved Data to class fields
-        if positive_sentiment == 1:
-            self.pos_key = keyword
-            label = np.tile(1, tweets_df.shape[0])
+        if tweets_df is not None:
+            # assign retrieved Data to class fields
+            if positive_sentiment == 1:
+                self.pos_key = keyword
+                label = np.tile(1, tweets_df.shape[0])
 
-        elif positive_sentiment == 0:
-            self.neg_key = keyword
-            label = np.tile(0, tweets_df.shape[0])
+            elif positive_sentiment == 0:
+                self.neg_key = keyword
+                label = np.tile(0, tweets_df.shape[0])
 
-        tweets_df["label"] = label
+            tweets_df["label"] = label
 
-        return tweets_df
+            return tweets_df
 
     def get_data(self, pos_key, neg_key, N, save_to_csv=True, file_path=None):
         '''
@@ -108,26 +109,18 @@ class DataRetriever:
         positive_tweets = self._retrieve_tweets(keyword=pos_key, positive_sentiment=1, n=N / 2)
         negative_tweets = self._retrieve_tweets(keyword=neg_key, positive_sentiment=0, n=N / 2)
 
-        # TODO adjust column names
         # merge retrieved data
-        self.raw_data = pd.concat([negative_tweets, positive_tweets], ignore_index=True)
+        temp = pd.concat([negative_tweets, positive_tweets], ignore_index=True)
+        temp.columns = ["time", "id", "text"]
 
+        # remove duplicates
+        temp = temp.drop_duplicates(subset="text")
+
+        self.raw_data = temp
         if save_to_csv:
             self.raw_data.to_csv(file_path)
 
         return self.raw_data
-
-    testdata = pd.DataFrame({"label": [1, 1, 1, 1, 1, 0, 0, 0, 0, 0],
-                             "text": ["I'm so happy today!",
-                                      "This is the best week of my life!",
-                                      "YAY I graduated",
-                                      "Today my sister married the love of her life!",
-                                      "going off to Canada today! looking so forward",
-                                      "It's raining and I have an appointment",
-                                      "My boss fired me today",
-                                      "I broke my leg",
-                                      "I'll never be as happy as I want to be!",
-                                      "My life sucks"]})
 
 
 class Models:
@@ -213,7 +206,7 @@ class Models:
         "GF": "Girlfriend",
         "GR8": "Great"
     }
-    # insults to be replaced by bad_word in _clean_tweets
+    # insults to be replaced by "bad_word" in _clean_tweets
     _INSULTS = [
         "arse",
         "ass",
@@ -262,7 +255,7 @@ class Models:
         "sucker",
         "twat",
         "whore"]
-    # negations to be replaced by not in _clean_tweets
+    # negations to be replaced by "not" in _clean_tweets
     _NEGATIONS = [
         "isn't",
         "isnt",
@@ -306,7 +299,7 @@ class Models:
         :param colname_tweets: string specifying the column name of the column with the tweets.
         """
         self._model_folder_path = model_folder_path
-        self.raw_df = raw_data  # todo make sure correct format
+        self.raw_df = raw_data
         self._colname_tweets = colname_tweets
 
         self.preprocessed_df = None
@@ -322,10 +315,7 @@ class Models:
         Internal function to apply preprocessing to the raw data.
         """
         prep = self.raw_df.copy(deep=True)
-        prep["clean_text"] = prep[self._colname_tweets].apply(
-            lambda x: self._clean_tweet(x))  # TODO: adjust colname if necessary
-        # prep.drop(self._colname_tweets, axis=1)
-        # TODO: removing empty tweets after preprocessing?
+        prep["clean_text"] = prep[self._colname_tweets].apply(lambda x: self._clean_tweet(x))
 
         # assign to instance variable
         self.preprocessed_df = prep
@@ -472,10 +462,10 @@ class ModelTrainer(Models):
         self._word_index = None
         self._vocab_size = None
         self._max_length = None
-        self._training_specs = {"glove_dim": 50, "lstm_size": 64, "dropout_rate": 0.5, "n_epochs": 5, "batch_size": 128}
+        self._n_epochs = None
 
     def train_model_on_data(self, glove_path, overfitting_plot=True, save_model=True,
-                            training_specs=None):
+                            glove_dim=50, lstm_size=64, dropout_rate=0.5, n_epochs=5, batch_size=64):
         '''
         Builds and trains deep LSTM model with embedding layer based on pretrained glove embedding. It consists of
         embedding layer, LSTm layer, dropout layer, LSTM layer, dropout layer and dense layer.
@@ -483,20 +473,23 @@ class ModelTrainer(Models):
         :param glove_path: path to the glove data.
         :param overfitting_plot: if True an overfitting plot it returned.
         :param save_model: if True the model is saved to the prespecified model_folder_path.
-        :param training_specs: optional. Dictionary containing training specifidations. If nothing it specified,
-        {"glove_dim": 50, "lstm_size": 64, "dropout_rate": 0.5, "n_epochs": 5, "batch_size": 128} is used.
+        :param glove_dim: dimension of the pretrained glove embedding, default 50.
+        :param lstm_size: size of the LSTM layers, default 64.
+        :param dropout_rate: droupout rate of the dsopout layers, default 0.5.
+        :param n_epochs: number of epochs to train the model, default 5.
+        :param batch_size: size of batches for model training, default 64.
 
         :return the trained model.
         '''
-        if training_specs is not None:
-            self._training_specs = training_specs
 
         super()._preprocess_tweets()
-        self._prepare_model_input(save_model = save_model)
-        self._create_and_train_model(glove_path=glove_path)
+        self._prepare_model_input(save_model=save_model)
+        self._create_and_train_model(glove_path=glove_path, glove_dim=glove_dim, lstm_size=lstm_size,
+                                     dropout_rate=dropout_rate, n_epochs=n_epochs, batch_size=batch_size)
 
         # show training
         if overfitting_plot:
+            self._n_epochs = n_epochs
             self._overfitting_plot()
 
         # save model
@@ -559,10 +552,15 @@ class ModelTrainer(Models):
             with io.open(self._model_folder_path + '/tokenizer.json', 'w', encoding='utf-8') as f:
                 f.write(json.dumps(tokenizer_json, ensure_ascii=False))
 
-    def _create_and_train_model(self, glove_path):
+    def _create_and_train_model(self, glove_path, glove_dim, lstm_size, dropout_rate, n_epochs, batch_size):
         """
         Internal function to create and train the LSTM model.
         :param glove_path: path specifying where the pretrained embedding is saved.
+        :param glove_dim: dimension of the pretrained glove embedding.
+        :param lstm_size: size of the LSTM layers.
+        :param dropout_rate: droupout rate of the dsopout layers.
+        :param n_epochs: number of epochs to train the model.
+        :param batch_size: size of batches for model training.
         :return:
         """
         # get the pretrained word embedding
@@ -576,7 +574,7 @@ class ModelTrainer(Models):
         glove.close()
 
         # build embedding matrix to set weights for embedding layer
-        emb_matrix = np.zeros((self._vocab_size, self._training_specs.get("glove_dim")))
+        emb_matrix = np.zeros((self._vocab_size, glove_dim))
         for w, i in self._word_index.items():
             # if chatty: print(w)
             if i < self._vocab_size:
@@ -588,22 +586,22 @@ class ModelTrainer(Models):
 
         # build model
         m = models.Sequential()
-        m.add(Embedding(self._vocab_size, self._training_specs.get("glove_dim"), input_length=self._max_length))
-        m.add(LSTM(self._training_specs.get("lstm_size"), return_sequences=True))
-        m.add(Dropout(rate=self._training_specs.get("dropout_rate")))
-        m.add(LSTM(self._training_specs.get("lstm_size")))
-        m.add(Dropout(rate=self._training_specs.get("dropout_rate")))
+        m.add(Embedding(self._vocab_size, glove_dim, input_length=self._max_length))
+        m.add(LSTM(lstm_size, return_sequences=True))
+        m.add(Dropout(rate=dropout_rate))
+        m.add(LSTM(lstm_size))
+        m.add(Dropout(rate=dropout_rate))
         m.add(Dense(1, activation='sigmoid'))
 
         # adjust embedding layer
         m.layers[0].set_weights([emb_matrix])
-        m.layers[0].trainable = False # prevent overfitting
+        m.layers[0].trainable = False  # prevent overfitting
 
         # compile and train
         m.compile(optimizer='Adam', loss=tf.keras.losses.BinaryCrossentropy(),
                   metrics=[BinaryAccuracy(), TrueNegatives(), TruePositives(), FalseNegatives(), FalsePositives()])
-        hist = m.fit(self._x_train, self._y_train, epochs=self._training_specs.get("n_epochs"),
-                     batch_size=self._training_specs.get("batch_size"),
+        hist = m.fit(self._x_train, self._y_train, epochs=n_epochs,
+                     batch_size=batch_size,
                      verbose=1, validation_split=0.2)
         self._model = m
         self.model_history = pd.DataFrame(hist.history)
@@ -615,9 +613,9 @@ class ModelTrainer(Models):
         than in the test data.
         """
         # create df for plots
-        df = pd.DataFrame(data=np.repeat(['Training', 'Validation'], repeats=self._training_specs.get("n_epochs")),
+        df = pd.DataFrame(data=np.repeat(['Training', 'Validation'], repeats=self._n_epochs),
                           columns=['trainval'])
-        df['xaxis'] = np.array([range(1, self._training_specs.get("n_epochs") + 1)] * 2).flatten()
+        df['xaxis'] = np.array([range(1, self._n_epochs + 1)] * 2).flatten()
         df['binary_accuracy'] = np.array(
             [self.model_history['binary_accuracy'], self.model_history['val_binary_accuracy']]).flatten()
         df['loss'] = np.array([self.model_history['loss'], self.model_history['val_loss']]).flatten()
@@ -705,8 +703,8 @@ if __name__ == '__main__':
 
     print(access_token)
 
-    #streamList = StdOutListener()
-    #dataRetr = DataRetriever()
-    #analyzyer = Analyzer(DataRetriever=dataRetr)
+    # streamList = StdOutListener()
+    # dataRetr = DataRetriever()
+    # analyzyer = Analyzer(DataRetriever=dataRetr)
 
     exit()
