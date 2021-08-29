@@ -21,6 +21,7 @@ from keras.preprocessing.text import Tokenizer, tokenizer_from_json
 from keras.preprocessing.sequence import pad_sequences
 from keras.metrics import BinaryAccuracy, TrueNegatives, TruePositives, FalseNegatives, FalsePositives
 
+import tweepy
 from tweepy.streaming import StreamListener
 from tweepy import OAuthHandler, Stream, Cursor
 import time
@@ -44,7 +45,7 @@ class DataRetriever:
     # we need to assign access token, access token secret, consumer key, consumer secret to this function
     def _retrieve_tweets(self, keyword, positive_sentiment, n, 
                         access_token, access_token_secret, 
-                         consumer_key, consumer_secret):
+                        consumer_key, consumer_secret):
         '''
         Internal function to retrieve data from Twitter according to the keyword argument.
 
@@ -55,25 +56,20 @@ class DataRetriever:
         '''
 
         # get tweets
-        
         auth = OAuthHandler(consumer_key, consumer_secret)
         auth.set_access_token(access_token, access_token_secret)
         
         # api for further tweets download
         api = tweepy.API(auth)
         
-        # try:
-        tweets = tweepy.Cursor(api.search, q=keyword).items(int(n_tweets))
+
+        tweets = tweepy.Cursor(api.search, q=keyword).items(int(n))
     
         tweets_list = [
                     [tweet.created_at, tweet.id, tweet.text]
                     for tweet in tweets]
 
         tweets_df = pd.DataFrame(tweets_list)
-
-        # except BaseException as b:
-        #     print('failed', str(b))
-        #     time.sleep(3)
 
         if tweets_df is not None:
             # assign retrieved Data to class fields
@@ -749,10 +745,12 @@ if __name__ == '__main__':
     consumer_key = os.environ.get('consumer_key')
     consumer_secret = os.environ.get('consumer_secret')
 
-    print(access_token)
-
     # streamList = StdOutListener()
-    # dataRetr = DataRetriever()
+    dataRetr = DataRetriever()
+    print(dataRetr._retrieve_tweets(keyword=["glad"], positive_sentiment=1, n=4,
+                        access_token=access_token, access_token_secret=access_token_secret,
+                        consumer_key=consumer_key, consumer_secret=consumer_secret)['label'])
+
     # analyzyer = Analyzer(DataRetriever=dataRetr)
 
     exit()
