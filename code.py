@@ -28,7 +28,7 @@ import time
 
 import os
 from dotenv import load_dotenv
-load_dotenv(".env.txt")
+load_dotenv()
 
 
 # nltk.download("stopwords")
