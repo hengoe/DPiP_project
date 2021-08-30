@@ -47,9 +47,9 @@ class DataRetriever:
         self.realistic_data = pd.DataFrame()  # tweets that contain the topic_key regardless of the sentiment
 
     # we need to assign access token, access token secret, consumer key, consumer secret to this function
-    def _retrieve_tweets(self, keyword, positive_sentiment, n,
+    def _retrieve_tweets(self, topic_key, positive_sentiment, n,
                          access_token, access_token_secret,
-                         consumer_key, consumer_secret):
+                         consumer_key, consumer_secret, additional_key=None):
         '''
         Internal function to retrieve data from Twitter according to the keyword argument.
 
@@ -62,6 +62,12 @@ class DataRetriever:
         :param consumer_secret:
         :return: pd.DataFrame with information on time, id, text and sentiment of tweets retrieved.
         '''
+
+        if additional_key is not None:
+            keyword=
+            # 2 kewords
+        else:
+            # 1 keyword
 
         # get tweets
         auth = OAuthHandler(consumer_key, consumer_secret)
@@ -126,12 +132,14 @@ class DataRetriever:
             raise TypeError("Please provide file_path if save_to_csv=True!")
 
         # call _retrieve_tweets fpr positive and negative sentiment, retrieving half of the desired number of tweets in each case
-        positive_tweets = self._retrieve_tweets(keyword=pos_key, positive_sentiment=1, n=N / 2,
+        positive_tweets = self._retrieve_tweets(keyword=topic_key, positive_sentiment=1, n=N / 2,
                                                 access_token=access_token, access_token_secret=access_token_secret,
-                                                consumer_key=consumer_key, consumer_secret=consumer_secret)
-        negative_tweets = self._retrieve_tweets(keyword=neg_key, positive_sentiment=0, n=N / 2,
+                                                consumer_key=consumer_key, consumer_secret=consumer_secret,
+                                                additional_key=pos_key)
+        negative_tweets = self._retrieve_tweets(keyword=topic_key, positive_sentiment=0, n=N / 2,
                                                 access_token=access_token, access_token_secret=access_token_secret,
-                                                consumer_key=consumer_key, consumer_secret=consumer_secret)
+                                                consumer_key=consumer_key, consumer_secret=consumer_secret,
+                                                additional_key=neg_key)
 
         # merge retrieved data
         temp = pd.concat([negative_tweets, positive_tweets], ignore_index=True)
