@@ -32,7 +32,7 @@ import os
 #load_dotenv('.env.txt')
 
 
-# nltk.download("stopwords")
+nltk.download("stopwords")
 
 
 class DataRetriever:
