@@ -27,11 +27,12 @@ from tweepy import OAuthHandler, Stream, Cursor
 import time
 
 import os
-from dotenv import load_dotenv
-load_dotenv(".env.txt")
+#from dotenv import load_dotenv
+
+#load_dotenv('.env.txt')
 
 
-# nltk.download("stopwords")
+nltk.download("stopwords")
 
 
 class DataRetriever:
@@ -42,35 +43,45 @@ class DataRetriever:
         '''
         self.pos_key = ""
         self.neg_key = ""
-        self.training_data = pd.DataFrame() # half positive & half negative tweets
-        self.realistic_data = pd.DataFrame() # tweets that contain the topic_key regardless of the sentiment
-    
+        self.training_data = pd.DataFrame()  # half positive & half negative tweets
+        self.realistic_data = pd.DataFrame()  # tweets that contain the topic_key regardless of the sentiment
+
     # we need to assign access token, access token secret, consumer key, consumer secret to this function
-    def _retrieve_tweets(self, keyword, positive_sentiment, n, 
-                        access_token, access_token_secret, 
-                        consumer_key, consumer_secret):
+    def _retrieve_tweets(self, topic_key, positive_sentiment, n,
+                         access_token, access_token_secret,
+                         consumer_key, consumer_secret, additional_key=None):
         '''
         Internal function to retrieve data from Twitter according to the keyword argument.
 
         :param keyword: string specifying the word or emoticon to retrieve tweets with.
         :param positive_sentiment: boolean. 0 if negative, 1 if positive
         :param n: number of tweets to retrieve
+        :param access_token: # TODO Marina: insert descriptions for these 4 inputs
+        :param access_token_secret:
+        :param consumer_key:
+        :param consumer_secret:
         :return: pd.DataFrame with information on time, id, text and sentiment of tweets retrieved.
         '''
+
+        if additional_key is not None:
+            keyword=
+            # 2 kewords
+        else:
+            keyword=
+            # 1 keyword
 
         # get tweets
         auth = OAuthHandler(consumer_key, consumer_secret)
         auth.set_access_token(access_token, access_token_secret)
-        
+
         # api for further tweets download
         api = tweepy.API(auth)
-        
 
-        tweets = tweepy.Cursor(api.search, q=keyword).items(int(n))
-    
+        tweets = tweepy.Cursor(api.search, q=keyword, wait_on_rate_limit = True, wait_on_rate_limit_notify = True).items(int(n))
+
         tweets_list = [
-                    [tweet.created_at, tweet.id, tweet.text]
-                    for tweet in tweets]
+            [tweet.created_at, tweet.id, tweet.text]
+            for tweet in tweets]
 
         tweets_df = pd.DataFrame(tweets_list)
 
@@ -79,8 +90,7 @@ class DataRetriever:
             if positive_sentiment == 1:
                 self.pos_key = keyword
                 label = np.tile(1, tweets_df.shape[0])
-
-            elif positive_sentiment == 0:
+            else:
                 self.neg_key = keyword
                 label = np.tile(0, tweets_df.shape[0])
 
@@ -98,12 +108,17 @@ class DataRetriever:
         clean_tweet = re.sub(word_to_drop, " ", tweet)
         return clean_tweet
 
-    def get_training_data(self, topic_key, pos_key="\:\)", neg_key="\:\(", N=100000, save_to_csv=True, file_path=None):
+    def get_training_data(self, access_token, access_token_secret, consumer_key, consumer_secret,
+                          topic_key, pos_key="\:\)", neg_key="\:\(", N=100000, save_to_csv=True, file_path=None):
         '''
         Retrieve tweets according to the specified keywords. For training purposes it is important to have evenly
          distributed classes and therefore half positive and half negative tweets will be retrieved.
          Optionally save the data as csv to prespecified path.
 
+        :param access_token:# TODO Marina: insert descriptions for these 4 inputs
+        :param access_token_secret:
+        :param consumer_key:
+        :param consumer_secret:
         :param topic_key: string specifying the word to retrieve tweets for.
         :param pos_key: string specifying the word or emoticon to retrieve positive tweets with. Make sure to escape
         characters if necessary, e.g. instead of pos_key = ":)" put pos_key = "\:\)".
@@ -118,8 +133,18 @@ class DataRetriever:
             raise TypeError("Please provide file_path if save_to_csv=True!")
 
         # call _retrieve_tweets fpr positive and negative sentiment, retrieving half of the desired number of tweets in each case
-        positive_tweets = self._retrieve_tweets(keyword=pos_key, positive_sentiment=1, n=N / 2)
-        negative_tweets = self._retrieve_tweets(keyword=neg_key, positive_sentiment=0, n=N / 2)
+        positive_tweets = self._retrieve_tweets(topic_key=topic_key, positive_sentiment=1, n=1.5 * N / 2,
+                                                access_token=access_token, access_token_secret=access_token_secret,
+                                                consumer_key=consumer_key, consumer_secret=consumer_secret,
+                                                additional_key=pos_key)
+        negative_tweets = self._retrieve_tweets(topic_key=topic_key, positive_sentiment=0, n=1.5 * N / 2,
+                                                access_token=access_token, access_token_secret=access_token_secret,
+                                                consumer_key=consumer_key, consumer_secret=consumer_secret,
+                                                additional_key=neg_key)
+
+        # only get N tweets evenly distributed over the two classes
+        negative_tweets = negative_tweets.iloc[:np.min([N / 2,negative_tweets.shape[0]])]
+        positive_tweets = positive_tweets.iloc[:np.min([N / 2,positive_tweets.shape[0]])]
 
         # merge retrieved data
         temp = pd.concat([negative_tweets, positive_tweets], ignore_index=True)
@@ -140,13 +165,18 @@ class DataRetriever:
 
         return self.training_data
 
-    def get_realistic_data(self, topic_key, N, save_to_csv=True, file_path=None):
+    def get_realistic_data(self, access_token, access_token_secret, consumer_key, consumer_secret,
+                           topic_key, N, save_to_csv=True, file_path=None):
         '''
         Retrieve tweets according to the specified keyword. There will be no attention paid to the sentiment that might
         be included in the tweet. Thus, this function retrieves a realistic distribution of tweets for the specified
         keyword to be further analyzed. This helps to do a market analysis regarding the overall sentiment Twitter
         users have for the specified topic. Optionally save the data as csv to prespecified path.
 
+        :param access_token:# TODO Marina: insert descriptions for these 4 inputs
+        :param access_token_secret:
+        :param consumer_key:
+        :param consumer_secret:
         :param topic_key: string specifying the word to retrieve tweets for.
         :param N: int specifying the total number of tweets.
         :param save_to_csv: if True data is saved to specified path (file_path).
@@ -157,11 +187,19 @@ class DataRetriever:
             raise TypeError("Please provide file_path if save_to_csv=True!")
 
         # get tweets according to keyword
-        realistic_tweets = self._retrieve_tweets(keyword=topic_key, positive_sentiment=1, n=N)
+        realistic_tweets = self._retrieve_tweets(topic_key=topic_key, positive_sentiment=1, n=1.5*N, # retrieve more tweets that necessary bc of duplicates that will be deleted
+                                                 access_token=access_token, access_token_secret=access_token_secret,
+                                                 consumer_key=consumer_key, consumer_secret=consumer_secret)
         realistic_tweets.columns = ["time", "id", "text", "label"]
+
+        # remove duplicates
+        realistic_tweets = realistic_tweets.drop_duplicates(subset="text")
 
         # drop keyword from tweets
         realistic_tweets["text"] = realistic_tweets["text"].apply(self._drop_keyword_from_text, args=(topic_key,))
+
+        # only get N tweets
+        realistic_tweets = realistic_tweets.iloc[:np.min([N,realistic_tweets.shape[0]])]
 
         self.realistic_data = realistic_tweets
         if save_to_csv:
@@ -751,8 +789,8 @@ if __name__ == '__main__':
     # streamList = StdOutListener()
     dataRetr = DataRetriever()
     print(dataRetr._retrieve_tweets(keyword=["glad"], positive_sentiment=1, n=400,
-                        access_token=access_token, access_token_secret=access_token_secret,
-                        consumer_key=consumer_key, consumer_secret=consumer_secret))
+                                    access_token=access_token, access_token_secret=access_token_secret,
+                                    consumer_key=consumer_key, consumer_secret=consumer_secret))
 
     # analyzyer = Analyzer(DataRetriever=dataRetr)
 
