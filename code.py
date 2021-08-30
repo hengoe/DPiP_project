@@ -27,9 +27,9 @@ from tweepy import OAuthHandler, Stream, Cursor
 import time
 
 import os
-from dotenv import load_dotenv
+# from dotenv import load_dotenv
 
-load_dotenv('env.txt')
+# load_dotenv('env.txt')
 
 
 nltk.download("stopwords")
@@ -56,15 +56,15 @@ class DataRetriever:
         :param keyword: string specifying the word or emoticon to retrieve tweets with.
         :param positive_sentiment: boolean. 0 if negative, 1 if positive
         :param n: number of tweets to retrieve
-        :param access_token: # TODO Marina: insert descriptions for these 4 inputs
-        :param access_token_secret:
-        :param consumer_key:
-        :param consumer_secret:
+        :param access_token: a user specific credential to authenticate OAuth API requests
+        :param access_token_secret: like a password to user specific credentials to authenticate OAuth API requests
+        :param consumer_key: represents a Twitter developer app when making API requests
+        :param consumer_secret: password to a Twitter developer app when making API requests
         :return: pd.DataFrame with information on time, id, text and sentiment of tweets retrieved.
         '''
 
         if additional_key is not None:
-            keyword = f"{} OR {}".format(topic_key, additional_key)
+            keyword = f"{topic_key} OR {additional_key}"
             # 2 kewords
         else:
             keyword = topic_key
@@ -77,7 +77,7 @@ class DataRetriever:
         # api for further tweets download
         api = tweepy.API(auth, wait_on_rate_limit = True, wait_on_rate_limit_notify = True)
 
-        tweets = tweepy.Cursor(api.search, q=keyword).items(int(n))
+        tweets = tweepy.Cursor(api.search, q=keyword, lang='en').items(int(n))
 
         tweets_list = [
             [tweet.created_at, tweet.id, tweet.text]
@@ -115,10 +115,10 @@ class DataRetriever:
          distributed classes and therefore half positive and half negative tweets will be retrieved.
          Optionally save the data as csv to prespecified path.
 
-        :param access_token:# TODO Marina: insert descriptions for these 4 inputs
-        :param access_token_secret:
-        :param consumer_key:
-        :param consumer_secret:
+        :param access_token: a user specific credential to authenticate OAuth API requests
+        :param access_token_secret: like a password to user specific credentials to authenticate OAuth API requests
+        :param consumer_key: represents a Twitter developer app when making API requests
+        :param consumer_secret: password to a Twitter developer app when making API requests
         :param topic_key: string specifying the word to retrieve tweets for.
         :param pos_key: string specifying the word or emoticon to retrieve positive tweets with. Make sure to escape
         characters if necessary, e.g. instead of pos_key = ":)" put pos_key = "\:\)".
@@ -173,10 +173,10 @@ class DataRetriever:
         keyword to be further analyzed. This helps to do a market analysis regarding the overall sentiment Twitter
         users have for the specified topic. Optionally save the data as csv to prespecified path.
 
-        :param access_token:# TODO Marina: insert descriptions for these 4 inputs
-        :param access_token_secret:
-        :param consumer_key:
-        :param consumer_secret:
+        :param access_token: a user specific credential to authenticate OAuth API requests
+        :param access_token_secret: like a password to user specific credentials to authenticate OAuth API requests
+        :param consumer_key: represents a Twitter developer app when making API requests
+        :param consumer_secret: password to a Twitter developer app when making API requests
         :param topic_key: string specifying the word to retrieve tweets for.
         :param N: int specifying the total number of tweets.
         :param save_to_csv: if True data is saved to specified path (file_path).
@@ -788,10 +788,11 @@ if __name__ == '__main__':
 
     # streamList = StdOutListener()
     dataRetr = DataRetriever()
-    print(dataRetr._retrieve_tweets(topic_key=["funny"], positive_sentiment=1, n=400,
+    data = dataRetr._retrieve_tweets(topic_key=["funny"], positive_sentiment=1, n=400,
                                     access_token=access_token, access_token_secret=access_token_secret,
                                     consumer_key=consumer_key, consumer_secret=consumer_secret,
-                                    additional_key=["happy"]))
+                                    additional_key=None)
+    print(data[2])
 
     # analyzyer = Analyzer(DataRetriever=dataRetr)
 
