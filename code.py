@@ -27,9 +27,9 @@ from tweepy import OAuthHandler, Stream, Cursor
 import time
 
 import os
-from dotenv import load_dotenv
+#from dotenv import load_dotenv
 
-load_dotenv('.env.txt')
+#load_dotenv('.env.txt')
 
 
 # nltk.download("stopwords")
