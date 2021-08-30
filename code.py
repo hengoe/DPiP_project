@@ -76,9 +76,7 @@ class DataRetriever:
 
         # api for further tweets download
         api = tweepy.API(auth, wait_on_rate_limit = True, wait_on_rate_limit_notify = True)
-
         tweets = tweepy.Cursor(api.search, q=keyword, lang='en').items(int(n))
-
         tweets_list = [
             [tweet.created_at, tweet.id, tweet.text]
             for tweet in tweets]
