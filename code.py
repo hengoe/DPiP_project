@@ -27,6 +27,9 @@ from tweepy import OAuthHandler, Stream, Cursor
 import time
 
 import os
+from dotenv import load_dotenv
+load_dotenv(".env.txt")
+
 
 # nltk.download("stopwords")
 
@@ -740,16 +743,16 @@ class ModelApplier(Models):
 if __name__ == '__main__':
     # api access code
 
-    access_token = os.environ.get('access_token')
-    access_token_secret = os.environ.get('access_token_secret')
-    consumer_key = os.environ.get('consumer_key')
-    consumer_secret = os.environ.get('consumer_secret')
+    access_token = os.getenv('access_token')
+    access_token_secret = os.getenv('access_token_secret')
+    consumer_key = os.getenv('consumer_key')
+    consumer_secret = os.getenv('consumer_secret')
 
     # streamList = StdOutListener()
     dataRetr = DataRetriever()
-    print(dataRetr._retrieve_tweets(keyword=["glad"], positive_sentiment=1, n=4,
+    print(dataRetr._retrieve_tweets(keyword=["glad"], positive_sentiment=1, n=400,
                         access_token=access_token, access_token_secret=access_token_secret,
-                        consumer_key=consumer_key, consumer_secret=consumer_secret)['label'])
+                        consumer_key=consumer_key, consumer_secret=consumer_secret))
 
     # analyzyer = Analyzer(DataRetriever=dataRetr)
 
