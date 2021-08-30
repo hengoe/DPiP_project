@@ -27,9 +27,9 @@ from tweepy import OAuthHandler, Stream, Cursor
 import time
 
 import os
-#from dotenv import load_dotenv
+from dotenv import load_dotenv
 
-#load_dotenv('.env.txt')
+load_dotenv('env.txt')
 
 
 nltk.download("stopwords")
@@ -64,10 +64,10 @@ class DataRetriever:
         '''
 
         if additional_key is not None:
-            keyword=
+            keyword = f"{} OR {}".format(topic_key, additional_key)
             # 2 kewords
         else:
-            keyword=
+            keyword = topic_key
             # 1 keyword
 
         # get tweets
@@ -75,9 +75,9 @@ class DataRetriever:
         auth.set_access_token(access_token, access_token_secret)
 
         # api for further tweets download
-        api = tweepy.API(auth)
+        api = tweepy.API(auth, wait_on_rate_limit = True, wait_on_rate_limit_notify = True)
 
-        tweets = tweepy.Cursor(api.search, q=keyword, wait_on_rate_limit = True, wait_on_rate_limit_notify = True).items(int(n))
+        tweets = tweepy.Cursor(api.search, q=keyword).items(int(n))
 
         tweets_list = [
             [tweet.created_at, tweet.id, tweet.text]
@@ -788,9 +788,10 @@ if __name__ == '__main__':
 
     # streamList = StdOutListener()
     dataRetr = DataRetriever()
-    print(dataRetr._retrieve_tweets(keyword=["glad"], positive_sentiment=1, n=400,
+    print(dataRetr._retrieve_tweets(topic_key=["funny"], positive_sentiment=1, n=400,
                                     access_token=access_token, access_token_secret=access_token_secret,
-                                    consumer_key=consumer_key, consumer_secret=consumer_secret))
+                                    consumer_key=consumer_key, consumer_secret=consumer_secret,
+                                    additional_key=["happy"]))
 
     # analyzyer = Analyzer(DataRetriever=dataRetr)
 
