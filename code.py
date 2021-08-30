@@ -67,6 +67,7 @@ class DataRetriever:
             keyword=
             # 2 kewords
         else:
+            keyword=
             # 1 keyword
 
         # get tweets
@@ -132,14 +133,18 @@ class DataRetriever:
             raise TypeError("Please provide file_path if save_to_csv=True!")
 
         # call _retrieve_tweets fpr positive and negative sentiment, retrieving half of the desired number of tweets in each case
-        positive_tweets = self._retrieve_tweets(keyword=topic_key, positive_sentiment=1, n=N / 2,
+        positive_tweets = self._retrieve_tweets(topic_key=topic_key, positive_sentiment=1, n=1.5 * N / 2,
                                                 access_token=access_token, access_token_secret=access_token_secret,
                                                 consumer_key=consumer_key, consumer_secret=consumer_secret,
                                                 additional_key=pos_key)
-        negative_tweets = self._retrieve_tweets(keyword=topic_key, positive_sentiment=0, n=N / 2,
+        negative_tweets = self._retrieve_tweets(topic_key=topic_key, positive_sentiment=0, n=1.5 * N / 2,
                                                 access_token=access_token, access_token_secret=access_token_secret,
                                                 consumer_key=consumer_key, consumer_secret=consumer_secret,
                                                 additional_key=neg_key)
+
+        # only get N tweets evenly distributed over the two classes
+        negative_tweets = negative_tweets.iloc[:np.min([N / 2,negative_tweets.shape[0]])]
+        positive_tweets = positive_tweets.iloc[:np.min([N / 2,positive_tweets.shape[0]])]
 
         # merge retrieved data
         temp = pd.concat([negative_tweets, positive_tweets], ignore_index=True)
@@ -182,13 +187,19 @@ class DataRetriever:
             raise TypeError("Please provide file_path if save_to_csv=True!")
 
         # get tweets according to keyword
-        realistic_tweets = self._retrieve_tweets(keyword=topic_key, positive_sentiment=1, n=N,
+        realistic_tweets = self._retrieve_tweets(topic_key=topic_key, positive_sentiment=1, n=1.5*N, # retrieve more tweets that necessary bc of duplicates that will be deleted
                                                  access_token=access_token, access_token_secret=access_token_secret,
                                                  consumer_key=consumer_key, consumer_secret=consumer_secret)
         realistic_tweets.columns = ["time", "id", "text", "label"]
 
+        # remove duplicates
+        realistic_tweets = realistic_tweets.drop_duplicates(subset="text")
+
         # drop keyword from tweets
         realistic_tweets["text"] = realistic_tweets["text"].apply(self._drop_keyword_from_text, args=(topic_key,))
+
+        # only get N tweets
+        realistic_tweets = realistic_tweets.iloc[:np.min([N,realistic_tweets.shape[0]])]
 
         self.realistic_data = realistic_tweets
         if save_to_csv:
