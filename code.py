@@ -75,7 +75,7 @@ class DataRetriever:
 
         # api for further tweets download
         api = tweepy.API(auth, wait_on_rate_limit = True, wait_on_rate_limit_notify = True)
-        tweets = tweepy.Cursor(api.search, q=keyword, lang='en').items(int(n))
+        tweets = tweepy.Cursor(api.search, q=keyword, lang="en").items(int(n))
         tweets_list = [
             [tweet.created_at, tweet.id, tweet.text]
             for tweet in tweets]
@@ -130,11 +130,11 @@ class DataRetriever:
             raise TypeError("Please provide file_path if save_to_csv=True!")
 
         # call _retrieve_tweets fpr positive and negative sentiment, retrieving half of the desired number of tweets in each case
-        positive_tweets = self._retrieve_tweets(topic_key=topic_key, positive_sentiment=1, n=int(1.5 * N / 2),
+        positive_tweets = self._retrieve_tweets(topic_key=topic_key, positive_sentiment=1, n=int(N),
                                                 access_token=access_token, access_token_secret=access_token_secret,
                                                 consumer_key=consumer_key, consumer_secret=consumer_secret,
                                                 additional_key=pos_key)
-        negative_tweets = self._retrieve_tweets(topic_key=topic_key, positive_sentiment=0, n=int(1.5 * N / 2),
+        negative_tweets = self._retrieve_tweets(topic_key=topic_key, positive_sentiment=0, n=int(N),
                                                 access_token=access_token, access_token_secret=access_token_secret,
                                                 consumer_key=consumer_key, consumer_secret=consumer_secret,
                                                 additional_key=neg_key)
@@ -191,6 +191,7 @@ class DataRetriever:
 
         # remove duplicates
         realistic_tweets = realistic_tweets.drop_duplicates(subset="text")
+        realistic_tweets = realistic_tweets.drop(labels="label", axis = 1)
 
         # drop keyword from tweets
         realistic_tweets["text"] = realistic_tweets["text"].apply(self._drop_keyword_from_text, args=(topic_key,))
