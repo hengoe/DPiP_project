@@ -5,7 +5,6 @@ from nltk.corpus import stopwords
 from nltk.tokenize import TweetTokenizer
 import nltk
 from sklearn.model_selection import train_test_split
-
 import tensorflow as tf
 import matplotlib.pyplot as plt
 from matplotlib.ticker import FormatStrFormatter
@@ -14,21 +13,16 @@ import collections
 import seaborn as sns
 import io
 import json
-
 from keras import models
 from keras.layers import Embedding, Dense, LSTM, Dropout
 from keras.preprocessing.text import Tokenizer, tokenizer_from_json
 from keras.preprocessing.sequence import pad_sequences
 from keras.metrics import BinaryAccuracy, TrueNegatives, TruePositives, FalseNegatives, FalsePositives
-
 import tweepy
 from tweepy.streaming import StreamListener
 from tweepy import OAuthHandler, Stream, Cursor
-import time
-
 import os
-# from dotenv import load_dotenv
-# load_dotenv('env.txt')
+
 
 
 nltk.download("stopwords")
@@ -774,21 +768,3 @@ class ModelApplier(Models):
         self._prepare_model_input()
         super()._predict_new_data(return_predictions=return_predictions, confusion_matrix=False,
                                   predictions_histogram=predictions_histogram)
-
-
-if __name__ == '__main__':
-    # api access code
-    access_token = os.getenv('access_token')
-    access_token_secret = os.getenv('access_token_secret')
-    consumer_key = os.getenv('consumer_key')
-    consumer_secret = os.getenv('consumer_secret')
-
-    # streamList = StdOutListener()
-    dataRetr = DataRetriever()
-    data = dataRetr._retrieve_tweets(topic_key=["funny"], positive_sentiment=1, n=400,
-                                    access_token=access_token, access_token_secret=access_token_secret,
-                                    consumer_key=consumer_key, consumer_secret=consumer_secret,
-                                    additional_key=None)
-    print(data[2])
-
-    exit()
